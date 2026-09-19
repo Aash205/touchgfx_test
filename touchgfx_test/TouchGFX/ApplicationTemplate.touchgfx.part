@@ -1,0 +1,30 @@
+
+{
+  "Application": {
+    "Name": "touchgfx_test",
+    "TouchGfxPath": "../Middlewares/ST/touchgfx",
+    "AvailableColorDepths": [ 16 ],
+    "AvailableLCDs":
+    {
+      "16": "LCD16bpp"
+    },
+    "AvailableResolutions": [
+      {
+        "Width": 240,
+        "Height": 240
+      }
+    ],
+    "PostGenerateTargetCommand": "touchgfx update_project",
+    "Family": "STM32L4",
+    "SubFamily": "STM32L4x6",
+    "Platform": "m4",
+    "Toolchain": "CMake",
+    "ProjectFile": "../touchgfx_test.ioc",
+    "OptionalComponentsRoot": "../Middlewares/ST/touchgfx_components",
+    "OptionalComponents": [
+    ],
+    "AdditionalFeatures": [
+    ]
+  },
+  "Version": "4.26.0"
+}
