@@ -1,367 +1,53 @@
-# Integration Guide: TouchGFX + ThreadX + BLE + USBX Demo
+# Integration guide
 
-## System Architecture
+## Source map
 
-This demo implements a multi-threaded embedded system with four key components working together:
+| File | Role |
+|---|---|
+| `Core/Src/unified.c`, `Core/Inc/unified.h` | ST7789V2 driver, Waveshare 1.69" 280x240; pin macros `DISP_*` in `main.h`; `DISPLAY_SPI_PRESCALER` |
+| `TouchGFX/target/TouchGFXHAL.cpp` | inits panel, flushes dirty rows, `touchgfxSignalVSync()` |
+| `Core/Src/app_threadx.c` | VSYNC timer, threads, UART RX callbacks |
+| `Core/Src/ble_app.c` | BlueNRG-2 init/advertising/event dispatch |
+| `Core/Src/uart_commands.c` | console command parser and LED control |
+| `Core/Src/usb_logging.c` | log/console sink on LPUART1 (mutex-protected) |
+| `Core/Src/app_tests.c` | smoke tests, run with `TEST` |
+| `Core/Src/dma2d.c` | DMA2D init for TouchGFX |
 
-```
-Hardware (STM32L496)
-├── I2C1 → OLED Display (SSD1306 128x64)
-├── LPUART1 → USB Serial (UART Commands)
-├── SPI → BlueNRG-2 BLE Module
-├── USB → USBX CDC Device (Logging)
-└── GPIO → LEDs (PA5 - User LED)
+## Build
 
-Software (Middleware & Apps)
-├── ThreadX RTOS (4 Tasks)
-│   ├── BLE Task (10Hz) - BLE connectivity
-│   ├── UART CMD Task (20Hz) - Command processing
-│   ├── Monitor Task (1Hz) - System monitoring
-│   └── TouchGFX Task (100Hz) - GUI rendering
-├── OLED Driver (I2C) - Display output
-├── USB Logging - Diagnostics
-└── BLE Stack (BlueNRG-2) - Wireless comms
-```
+Root `CMakeLists.txt` `target_sources` lists the user sources (unified, ble_app, uart_commands, usb_logging, app_tests, dma2d, HAL dma2d). Build: `cmake --preset Debug && cmake --build --preset Debug`.
 
-## Component Integration Map
+## Changing the display pins/speed
 
-### 1. OLED Display ↔ ThreadX Threads
-**File**: `Core/Src/oled_driver.c`, `Core/Src/app_threadx.c`
+Edit `DISP_CS/DC/RES_*` in `Core/Inc/main.h` and the GPIO init in `MX_GPIO_Init`; SPI2 pins are in `stm32l4xx_hal_msp.c`. If pixels are corrupt, use `SPI_BAUDRATEPRESCALER_4` in `unified.h`.
 
-Each thread updates the OLED with its status:
-- BLE Thread: Shows connection status ("Advertising", "Connected", "Paired")
-- UART Thread: Shows last command executed ("LED0 ON", etc.)
-- Monitor Thread: Shows system status ("Running...")
+## Logging / console
 
-**Integration Points**:
-```c
-// In each thread:
-OLED_Clear(&oled_handle);
-OLED_PrintStr(&oled_handle, 0, 0, "BLE Status");
-OLED_PrintStr(&oled_handle, 0, 1, status_str);
-OLED_UpdateDisplay(&oled_handle);
-```
+`USB_Logging_Printf(level, fmt, ...)` and `USB_Logging_SendRaw()` write to LPUART1. USB CDC is not possible until the USBX STM32 device controller driver and HAL PCD are added; only `USB_Logging_SendRaw()` would need to change.
 
-### 2. UART Commands ↔ LED Control ↔ OLED Feedback
-**File**: `Core/Src/uart_commands.c`, `Core/Src/app_threadx.c`
+## Hand edits that CubeMX / TouchGFX regeneration can overwrite
 
-Command flow:
-```
-User sends UART command
-    ↓
-UART_CMD_Process() parses command
-    ↓
-UART_CMD_SetLEDState() toggles GPIO
-    ↓
-OLED displays command feedback
-    ↓
-USB logs the action
-```
+`touchgfx_test.ioc` has been updated (pins, DMA, DMA2D, PLL, NVIC, 280 width), but these edits sit outside USER CODE blocks and must be re-checked after any regeneration:
 
-**Example - LED0 ON command**:
-1. Receives: "LED0 ON\r\n"
-2. Parses: LED index = 0, Action = ON
-3. Executes: HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET)
-4. Displays: "LED0: ON" on OLED line 2
-5. Logs: "[INFO] LED0 turned ON"
+- `TouchGFX/target/generated/STM32DMA.cpp/.hpp`: DMA2D version from TouchGFX 4.22, with its `paint` namespace removed (4.26 provides it).
+- `TouchGFXGeneratedHAL.cpp`: DMA2D IRQ enable/disable/priority, framebuffer 280x240, Paint includes kept.
+- `TouchGFXConfiguration.cpp`: HAL size 280x240; `touchgfx_test.touchgfx` resolution 280x240; generated GUI/backgrounds resized by hand.
+- `STM32L496XX_FLASH.ld`: `TouchGFX_Framebuffer` NOLOAD section.
+- `Core/Src/custom_bus.c`: SPI1 8-bit, prescaler 16.
+- `Core/Src/tx_initialize_low_level.S`: `SYSTEM_CLOCK` 80 MHz.
+- `main.c` / `stm32l4xx_hal_msp.c` / `stm32l4xx_it.c`: clock, DMA init, GPIOG VddIO2, DMA/LPUART/EXTI/DMA2D handlers.
 
-### 3. BLE Status ↔ OLED Display ↔ USB Logging
-**File**: `Core/Src/ble_app.c`, `Core/Src/app_threadx.c`, `Core/Src/usb_logging.c`
+## Untested / risks
 
-BLE state transitions:
-```
-IDLE → INITIALIZING → INITIALIZED → ADVERTISING → CONNECTED → PAIRED
-```
+Not run on hardware. 40 MHz SPI, the 4.22 DMA2D code on the 4.26 framework, and BLE against a real BlueNRG-2 are all unverified. Asset names still say `240x240`. PA9 is VBUS-sense on some boards.
 
-Each state change:
-- Updates OLED display in real-time
-- Logs event with timestamp via USB
-- May trigger UART notifications
+## Regeneration checklist (CubeMX, then TouchGFX Designer)
 
-**Example - BLE Connection**:
-```
-1. Device starts advertising (OLED: "Advertising")
-2. Remote device connects (OLED: "Connected", USB: "[INFO] BLE Connected")
-3. Pairing request (OLED: "Pairing...", USB: "[INFO] Pairing requested")
-4. Pairing complete (OLED: "Paired", USB: "[INFO] Pairing successful")
-```
+Hand edits are arranged so regeneration is safe:
 
-### 4. System Monitor ↔ USB Logging
-**File**: `Core/Src/usb_logging.c`, `Core/Src/app_threadx.c`
+- App-owned files (never regenerated): `Core/Src/{unified,ble_app,uart_commands,usb_logging,usb_cdc_log,app_tests,app_bsp}.c`, `linker/STM32L496XX_FLASH_app.ld` (used via root `CMakeLists.txt`), `TouchGFX/target/TouchGFXHAL.cpp`.
+- Interrupt handlers for DMA1_Ch5 / DMA2D / LPUART1 in `stm32l4xx_it.c` are `__weak`; CubeMX generates the strong ones. `EXTI9_5_IRQHandler` stays (not in the .ioc: BlueNRG pack owns it).
+- `dma2d.c` / `stm32l4xx_hal_dma2d.c` are added by the root CMake only if CubeMX's list lacks them.
+- USB: the `.ioc` has USB_OTG_FS (device only, PA11/PA12, HSI48, no VBUS sensing so PA9 stays LCD RES). Pool sizes are overridden in USER CODE blocks (`app_azure_rtos_config.h`, `app_usbx_device.h`). Log sink hooks sit in the USER CODE blocks of `ux_device_cdc_acm.c`.
 
-Monitor thread periodically logs:
-- System uptime
-- Thread states
-- BLE connection status
-- LED states
-- Memory usage
-
-**Log Example**:
-```
-[INFO] [00:00:05.000] System Uptime: 5 seconds
-[INFO] [00:00:05.100] BLE Status: 1, LED Count: 1
-[DEBUG] [00:00:10.000] Heap Free: 8192 bytes
-```
-
-## Data Flow Diagrams
-
-### User Interaction Flow
-```
-┌──────────────┐
-│ User connects│
-│ to UART port │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────────────────────┐
-│ Send: "LED0 ON\r\n"          │
-└──────┬───────────────────────┘
-       │
-       ▼
-┌──────────────────────────────┐    ┌──────────────────┐
-│ UART RX Interrupt            │───▶│ uart_cmd_handler │
-└──────┬───────────────────────┘    └──────────────────┘
-       │
-       ▼
-┌──────────────────────────────┐    ┌──────────────────┐
-│ Command Ready (rx_buffer)    │───▶│ UART CMD Thread  │
-└──────┬───────────────────────┘    └────────┬─────────┘
-       │                                     │
-       ├─────────────────────────────────────┤
-       │                                     ▼
-       │                        ┌──────────────────┐
-       │                        │ Parse command    │
-       │                        │ LED0 ON          │
-       │                        └────────┬─────────┘
-       │                                 │
-       │                    ┌────────────┴────────────┐
-       │                    │                         ▼
-       │                    ▼                ┌──────────────────┐
-       │         ┌─────────────────┐        │ Set LED GPIO     │
-       │         │ Update OLED     │        │ PA5 = SET        │
-       │         │ "LED0: ON"      │        └────────┬─────────┘
-       │         └────────┬────────┘                 │
-       │                  │                         │
-       │                  ▼                         ▼
-       │         ┌─────────────────────────────────────┐
-       │         │ USB_Logging_Printf                  │
-       │         │ "LED0 turned ON"                    │
-       │         └────────┬────────────────────────────┘
-       │                  │
-       ▼                  ▼
-    ┌────────────────────────────────┐
-    │ User sees feedback on all       │
-    │ - OLED: LED0 ON                │
-    │ - USB Log: [INFO] LED0 ON      │
-    └────────────────────────────────┘
-```
-
-## Configuration Requirements
-
-### 1. HAL Initialization (main.c)
-```c
-// Must be called BEFORE MX_ThreadX_Init():
-MX_GPIO_Init();          // GPIO for LEDs
-MX_LPUART1_UART_Init();  // UART for commands
-// I2C1 must be initialized for OLED
-// SPI for BLE (if using SPI interface)
-```
-
-### 2. Interrupt Handlers
-```c
-// UART RX Callback (in stm32l4xx_it.c)
-void LPUART1_IRQHandler(void) {
-  HAL_UART_IRQHandler(&hlpuart1);
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  if (huart->Instance == LPUART1) {
-    uint8_t data;
-    HAL_UART_Receive(&hlpuart1, &data, 1, 0);
-    UART_CMD_ReceiveCallback(&uart_cmd_handler, data);
-  }
-}
-```
-
-### 3. I2C Configuration
-```c
-// I2C1 for OLED (100 kHz standard mode)
-// Typical STM32CubeMX settings:
-// - Fast mode: Disabled
-// - Filtering: Enabled
-// - Timing: STM32L496 at 4MHz MSI
-```
-
-### 4. USART/LPUART
-```c
-// LPUART1 for UART commands
-// Typical settings:
-// - Baud rate: 115200
-// - Data bits: 8
-// - Stop bits: 1
-// - Parity: None
-// - Flow control: Disabled
-```
-
-## Thread Priority Design
-
-```
-Priority    Thread              Usage
-───────────────────────────────────────
-+2          BLE Thread          High-priority event handling
-+1          UART CMD Thread     User command processing  
- 0          Monitor Thread      System monitoring (base priority)
--1          TouchGFX Thread     GUI rendering (lowest priority)
-```
-
-**Rationale**:
-- BLE events are time-critical (wireless communication)
-- User commands need responsive feedback
-- Monitoring is periodic, less urgent
-- GUI can run at lower priority but still responsive
-
-## State Machine Flows
-
-### BLE State Machine
-```
-┌─────────────────────────────────────────┐
-│ IDLE                                    │
-│ (Not initialized)                       │
-└────────────┬────────────────────────────┘
-             │ BLE_App_Init()
-             ▼
-┌─────────────────────────────────────────┐
-│ INITIALIZED                             │
-│ (Stack ready, not advertising)          │
-└────────────┬────────────────────────────┘
-             │ BLE_App_StartAdvertising()
-             ▼
-┌─────────────────────────────────────────┐
-│ ADVERTISING                             │
-│ (Scanning for connections)              │
-└────┬──────────────────────────┬──────────┘
-     │ Remote connects          │ BLE_App_StopAdvertising()
-     ▼                          ▼
-┌─────────────────────┐    ┌──────────────┐
-│ CONNECTED           │    │ INITIALIZED  │
-│ (Link established)  │    │ (Idle)       │
-└────────┬────────────┘    └──────────────┘
-         │ Pairing request
-         ▼
-┌─────────────────────┐
-│ PAIRED              │
-│ (Bonded link)       │
-└─────────────────────┘
-```
-
-## Critical Sections & Synchronization
-
-### Shared Resources
-1. **OLED Display** - Accessed by multiple threads
-   - Protected by: Sequential access in app_threadx.c
-   - Solution: Each thread gets its own time slice
-
-2. **LED States** - Modified by UART CMD thread
-   - Protected by: Direct GPIO write
-   - No synchronization needed (atomic HAL calls)
-
-3. **USB Logging Buffer** - Accessed by multiple threads
-   - Protected by: usb_logging.c internal buffer
-   - Solution: Atomic buffer swap on flush
-
-## Timing Considerations
-
-### Thread Execution Times
-```
-BLE Thread:        ~50-100ms per cycle (10Hz update)
-UART Thread:       ~50ms per cycle (20Hz processing)
-Monitor Thread:    ~1000ms per cycle (1Hz)
-TouchGFX Thread:   ~10ms per cycle (100Hz)
-```
-
-### Critical Timings
-- OLED Update: 50-100ms (I2C communication)
-- LED Toggle: <1ms (GPIO write)
-- USB Log: 5-10ms (USB transfer)
-- BLE Event: 1-10ms (HCI command)
-
-## Debugging & Monitoring
-
-### Via USB Logging
-```c
-// Enable debug logging
-usb_logging.log_level = LOG_LEVEL_DEBUG;
-
-// Log custom messages
-USB_Logging_Printf(LOG_LEVEL_INFO, "System status: %d", status);
-
-// Get log count
-printf("Total logs: %d\n", usb_logging.log_count);
-```
-
-### Via OLED
-- Each thread updates OLED with current status
-- Rotate display every 1-5 seconds
-- Shows: Mode, Status, LED states, BLE connection
-
-### Via UART
-- Send STATUS command to get real-time state
-- Send HELP to see available commands
-- Real-time feedback for each command
-
-## Known Limitations & TODOs
-
-1. **BLE Stack Integration** (TODO in ble_app.c)
-   - HCI commands not fully implemented
-   - Need to call: hci_reset(), hci_le_set_advertising_parameters()
-   - GATT services not configured
-
-2. **USBX Integration** (TODO in usb_logging.c)
-   - CDC ACM transport layer not connected
-   - Need to implement: ux_device_class_cdc_acm_write()
-   - Buffer not actually sent to USB
-
-3. **TouchGFX Integration** (TODO in app_threadx.c)
-   - GUI rendering not connected to main loop
-   - Need to implement: MX_TouchGFX_Process() or equivalent
-   - Screen animations not added
-
-4. **Memory Management**
-   - OLED print uses malloc() for temporary buffer (potential issue)
-   - Should use stack-allocated buffer instead
-
-## Next Steps for Full Implementation
-
-1. **Complete BLE Integration**
-   - Implement BlueNRG-2 HCI command sequences
-   - Add GATT service discovery
-   - Implement pairing/bonding
-
-2. **Complete USB Integration**
-   - Implement USBX CDC ACM write function
-   - Set up USB device enumeration
-   - Test USB logging output
-
-3. **Optimize Performance**
-   - Profile thread CPU usage
-   - Adjust stack sizes if needed
-   - Optimize I2C communication
-
-4. **Add Features**
-   - Sensor integration (accelerometer, temp)
-   - Real-time data streaming via BLE
-   - On-device configuration menu
-   - Power management modes
-
-## Testing Checklist
-
-- [ ] OLED displays correctly initialized
-- [ ] UART commands parse correctly
-- [ ] LED0 toggles with commands
-- [ ] BLE stack initializes without errors
-- [ ] BLE device is discoverable
-- [ ] USB logging shows system events
-- [ ] Threads run without deadlock
-- [ ] All four threads operational
-- [ ] OLED updates in real-time
-- [ ] System stable for >1 hour runtime
+After generating: build; if the USB pack did not add `ux_dcd_stm32_*` / HAL PCD sources, enable `HAL_PCD_MODULE_ENABLED` and add the USBX STM32 device-controller sources. Check `cmake/stm32cubemx/CMakeLists.txt` for duplicates, and confirm `SYSTEM_CLOCK` in `tx_initialize_low_level.S` is 80000000. In Designer, re-layout the screens at 280x240 with real 280x240 background PNGs (the current ones are stretched 240x240 assets).

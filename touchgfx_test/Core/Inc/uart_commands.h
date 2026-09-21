@@ -40,6 +40,7 @@ typedef struct {
 typedef struct {
   UART_HandleTypeDef *huart;
   char rx_buffer[64];
+  uint8_t rx_byte;            /* single-byte interrupt receive target */
   uint8_t rx_index;
   uint8_t command_ready;
   LED_HandleTypeDef leds[4];  /* Support up to 4 LEDs */

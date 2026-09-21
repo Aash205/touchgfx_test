@@ -17,10 +17,10 @@
   */
 
 #include <TouchGFXGeneratedHAL.hpp>
-#include <touchgfx/hal/OSWrappers.hpp>
-#include <gui/common/FrontendHeap.hpp>
 #include <touchgfx/hal/PaintImpl.hpp>
 #include <touchgfx/hal/PaintRGB565Impl.hpp>
+#include <touchgfx/hal/OSWrappers.hpp>
+#include <gui/common/FrontendHeap.hpp>
 
 #include "stm32l4xx.h"
 
@@ -30,7 +30,7 @@ namespace
 {
 // Use the section "TouchGFX_Framebuffer" in the linker script to specify the placement of the buffer
 LOCATION_PRAGMA_NOLOAD("TouchGFX_Framebuffer")
-uint32_t frameBuf[(240 * 240 * 2 + 3) / 4] LOCATION_ATTRIBUTE_NOLOAD("TouchGFX_Framebuffer");
+uint32_t frameBuf[(280 * 240 * 2 + 3) / 4] LOCATION_ATTRIBUTE_NOLOAD("TouchGFX_Framebuffer");
 }
 
 void TouchGFXGeneratedHAL::initialize()
@@ -42,14 +42,17 @@ void TouchGFXGeneratedHAL::initialize()
 
 void TouchGFXGeneratedHAL::configureInterrupts()
 {
+    NVIC_SetPriority(DMA2D_IRQn, 9);
 }
 
 void TouchGFXGeneratedHAL::enableInterrupts()
 {
+    NVIC_EnableIRQ(DMA2D_IRQn);
 }
 
 void TouchGFXGeneratedHAL::disableInterrupts()
 {
+    NVIC_DisableIRQ(DMA2D_IRQn);
 }
 
 void TouchGFXGeneratedHAL::enableLCDControllerInterrupt()

@@ -2,8 +2,7 @@
 /**
   ******************************************************************************
   * @file    app_tests.h
-  * @brief   Application Test Suite Header
-  *          Unit tests for demo components
+  * @brief   On-target smoke tests (run with the UART command "TEST").
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -15,63 +14,22 @@
 extern "C" {
 #endif
 
-/* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
 
-/* Test Status Codes ----------------------------------------------------------*/
 typedef enum {
   TEST_PASS = 0,
   TEST_FAIL = 1,
   TEST_SKIP = 2
 } TestStatusTypeDef;
 
-/* Function Prototypes -------------------------------------------------------*/
+TestStatusTypeDef Test_Display(void);        /* driver geometry / rotation constants */
+TestStatusTypeDef Test_UART_Commands(void);  /* RX line assembly + command parsing */
+TestStatusTypeDef Test_LED_Control(void);    /* LED state machine */
+TestStatusTypeDef Test_BLE_Status(void);     /* BLE stack came up and is advertising/connected */
+TestStatusTypeDef Test_USB_Logging(void);    /* console sink accepts data */
 
-/**
- * @brief Test OLED initialization and basic operations
- * @param hi2c: I2C handle
- * @retval Test status
- */
-TestStatusTypeDef Test_OLED_Init(I2C_HandleTypeDef *hi2c);
-
-/**
- * @brief Test OLED display and drawing
- * @param hi2c: I2C handle
- * @retval Test status
- */
-TestStatusTypeDef Test_OLED_Drawing(I2C_HandleTypeDef *hi2c);
-
-/**
- * @brief Test UART command parsing
- * @retval Test status
- */
-TestStatusTypeDef Test_UART_Commands(void);
-
-/**
- * @brief Test LED control
- * @retval Test status
- */
-TestStatusTypeDef Test_LED_Control(void);
-
-/**
- * @brief Test BLE initialization
- * @retval Test status
- */
-TestStatusTypeDef Test_BLE_Init(void);
-
-/**
- * @brief Test USB logging
- * @retval Test status
- */
-TestStatusTypeDef Test_USB_Logging(void);
-
-/**
- * @brief Run all tests
- * @param hi2c: I2C handle
- * @param huart: UART handle
- * @retval Number of failed tests
- */
-int Test_RunAll(I2C_HandleTypeDef *hi2c, UART_HandleTypeDef *huart);
+/** Run everything; returns the number of failed tests. */
+int Test_RunAll(void);
 
 #ifdef __cplusplus
 }

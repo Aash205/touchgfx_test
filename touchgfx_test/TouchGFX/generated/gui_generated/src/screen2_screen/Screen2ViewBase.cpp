@@ -8,7 +8,7 @@
 Screen2ViewBase::Screen2ViewBase() :
     buttonCallback(this, &Screen2ViewBase::buttonCallbackHandler)
 {
-    __background.setPosition(0, 0, 240, 240);
+    __background.setPosition(0, 0, 280, 240);
     __background.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
     add(__background);
 
@@ -16,7 +16,7 @@ Screen2ViewBase::Screen2ViewBase() :
     image1.setBitmap(touchgfx::Bitmap(BITMAP_LIGHT_THEME_IMAGES_BACKGROUNDS_240X240_PINK_SHINE_ID));
     add(image1);
 
-    buttonWithIcon1.setXY(-58, 108);
+    buttonWithIcon1.setXY(-45, 108);
     buttonWithIcon1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_LARGE_ROUNDED_INACTIVE_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_LARGE_ROUNDED_INACTIVE_ID), touchgfx::Bitmap(BITMAP_ICON_THEME_IMAGES_ACTION_DONE_50_50_E8F6FB_SVG_ID), touchgfx::Bitmap(BITMAP_ICON_THEME_IMAGES_ACTION_DONE_50_50_E8F6FB_SVG_ID));
     buttonWithIcon1.setIconXY(160, 0);
     buttonWithIcon1.setAction(buttonCallback);

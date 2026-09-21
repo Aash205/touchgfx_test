@@ -2,18 +2,32 @@
 /**
   ******************************************************************************
   * @file    usb_logging.c
-  * @brief   USB Logging Implementation
+  * @brief   Logging / console output.
+  *
+  *          Sinks: LPUART1 (PC1 TX, PC0 RX; 115200 8N1, always) and USB CDC-ACM
+  *          (usb_cdc_log.c, only while a host has the port open). Both are fed from
+  *          USB_Logging_SendRaw(), serialised by a ThreadX mutex. The USB path is inert
+  *          until the USB_OTG_FS device + USBX controller code are generated from the .ioc.
   ******************************************************************************
   */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "usb_logging.h"
+#include "tx_api.h"
+#include "usb_cdc_log.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 /* Private variables ---------------------------------------------------------*/
+extern UART_HandleTypeDef hlpuart1;
+
+#define LOG_UART_TIMEOUT_MS 200U
+
+static TX_MUTEX log_mutex;
+static volatile uint8_t log_mutex_ready = 0;
+
 static USB_LoggingTypeDef usb_logging = {
   .tx_size = 0,
   .log_level = LOG_LEVEL_DEBUG,
@@ -28,9 +42,11 @@ int USB_Logging_Init(void)
   usb_logging.tx_size = 0;
   usb_logging.log_count = 0;
   
-  /* TODO: Initialize USBX device CDC interface */
-  /* ux_device_class_cdc_acm_initialize(); */
-  
+  if (!log_mutex_ready) {
+    if (tx_mutex_create(&log_mutex, (CHAR *)"Log mutex", TX_INHERIT) != TX_SUCCESS) return -1;
+    log_mutex_ready = 1;
+  }
+
   return 0;
 }
 
@@ -82,18 +98,21 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
 int USB_Logging_SendRaw(uint8_t *data, uint16_t size)
 {
   if (!data || size == 0) return -1;
-  
-  /* TODO: Actually send via USBX CDC ACM */
-  /* ux_device_class_cdc_acm_write(); */
-  
-  /* For now, just track that we would send it */
-  if (size <= sizeof(usb_logging.tx_buffer)) {
-    memcpy(usb_logging.tx_buffer, data, size);
-    usb_logging.tx_size = size;
-    return size;
+
+  /* The mutex only exists once the kernel runs; before that there is a single context. */
+  uint8_t locked = 0;
+  if (log_mutex_ready && tx_thread_identify() != NULL) {
+    if (tx_mutex_get(&log_mutex, TX_WAIT_FOREVER) != TX_SUCCESS) return -1;
+    locked = 1;
   }
-  
-  return -1;
+
+  /* Tee: USB CDC when a host has the port open (non-blocking, dropped otherwise), UART always. */
+  UsbCdcLog_Write(data, size);
+  HAL_StatusTypeDef st = HAL_UART_Transmit(&hlpuart1, data, size, LOG_UART_TIMEOUT_MS);
+
+  if (locked) tx_mutex_put(&log_mutex);
+
+  return (st == HAL_OK) ? (int)size : -1;
 }
 
 /**
@@ -109,11 +128,5 @@ int USB_Logging_LogStatus(const char *status_str)
  */
 int USB_Logging_Flush(void)
 {
-  if (usb_logging.tx_size > 0) {
-    /* Send buffer content */
-    int ret = usb_logging.tx_size;
-    usb_logging.tx_size = 0;
-    return ret;
-  }
-  return 0;
+  return 0; /* UART sink is unbuffered */
 }
