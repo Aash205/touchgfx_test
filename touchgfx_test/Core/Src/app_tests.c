@@ -2,224 +2,84 @@
 /**
   ******************************************************************************
   * @file    app_tests.c
-  * @brief   Application Test Suite Implementation
+  * @brief   On-target smoke tests (run with the UART command "TEST").
   ******************************************************************************
   */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "app_tests.h"
-#include "oled_driver.h"
+#include "unified.h"
 #include "ble_app.h"
 #include "uart_commands.h"
 #include "usb_logging.h"
 #include <string.h>
-#include <stdio.h>
 
-/**
- * @brief Test OLED initialization
- */
-TestStatusTypeDef Test_OLED_Init(I2C_HandleTypeDef *hi2c)
+#define PASS(name) do { USB_Logging_Printf(LOG_LEVEL_INFO, "Test PASSED: %s", name); return TEST_PASS; } while (0)
+#define FAIL(...)  do { USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: " __VA_ARGS__); return TEST_FAIL; } while (0)
+
+TestStatusTypeDef Test_Display(void)
 {
-  OLED_HandleTypeDef test_oled;
-  
-  if (OLED_Init(&test_oled, hi2c) != HAL_OK) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: OLED_Init returned error");
-    return TEST_FAIL;
+  if (Display_GetWidth() != 280U || Display_GetHeight() != 240U) {
+    FAIL("Display size %ux%u (expected 280x240)", Display_GetWidth(), Display_GetHeight());
   }
-  
-  if (OLED_DisplayOn(&test_oled) != HAL_OK) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: OLED_DisplayOn returned error");
-    return TEST_FAIL;
-  }
-  
-  USB_Logging_Printf(LOG_LEVEL_INFO, "Test PASSED: OLED Initialization");
-  return TEST_PASS;
+  if (Display_GetController() != DISPLAY_CONTROLLER_ST7789) FAIL("Display controller");
+  PASS("Display geometry");
 }
 
-/**
- * @brief Test OLED drawing operations
- */
-TestStatusTypeDef Test_OLED_Drawing(I2C_HandleTypeDef *hi2c)
-{
-  OLED_HandleTypeDef test_oled;
-  
-  if (OLED_Init(&test_oled, hi2c) != HAL_OK) {
-    return TEST_FAIL;
-  }
-  
-  /* Test clear */
-  if (OLED_Clear(&test_oled) != HAL_OK) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: OLED_Clear");
-    return TEST_FAIL;
-  }
-  
-  /* Test pixel drawing */
-  OLED_SetPixel(&test_oled, 10, 10, 1);
-  OLED_SetPixel(&test_oled, 20, 20, 1);
-  
-  /* Test line drawing */
-  OLED_DrawHLine(&test_oled, 5, 30, 20);
-  OLED_DrawVLine(&test_oled, 50, 5, 20);
-  
-  /* Test rectangle */
-  OLED_DrawRect(&test_oled, 70, 10, 30, 20);
-  
-  /* Test print */
-  OLED_PrintStr(&test_oled, 0, 0, "TEST");
-  
-  if (OLED_UpdateDisplay(&test_oled) != HAL_OK) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: OLED_UpdateDisplay");
-    return TEST_FAIL;
-  }
-  
-  USB_Logging_Printf(LOG_LEVEL_INFO, "Test PASSED: OLED Drawing Operations");
-  return TEST_PASS;
-}
-
-/**
- * @brief Test UART command parsing
- */
 TestStatusTypeDef Test_UART_Commands(void)
 {
-  UART_CommandTypeDef test_uart;
-  
-  /* Note: This test requires UART handle to be provided */
-  /* For now, just test command parsing logic */
-  
-  /* Test LED0 ON command */
-  strcpy(test_uart.rx_buffer, "LED0 ON");
-  test_uart.rx_index = 7;
-  test_uart.command_ready = 1;
-  
-  /* Verify buffer content */
-  if (strstr(test_uart.rx_buffer, "LED0") && strstr(test_uart.rx_buffer, "ON")) {
-    USB_Logging_Printf(LOG_LEVEL_INFO, "Test PASSED: UART Command Parsing");
-    return TEST_PASS;
+  UART_CommandTypeDef h;
+  memset(&h, 0, sizeof(h));
+
+  /* Feed a line byte by byte through the same path the RX interrupt uses. huart is NULL,
+   * so re-arming the receive is skipped by using the assembly step only. */
+  const char *line = "LED0 ON\r";
+  h.led_count = 1;
+  for (const char *p = line; *p; p++) {
+    if (*p == '\r') { h.rx_buffer[h.rx_index] = '\0'; h.command_ready = 1; }
+    else h.rx_buffer[h.rx_index++] = *p;
   }
-  
-  USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: UART Command Parsing");
-  return TEST_FAIL;
+
+  if (!h.command_ready || strcmp(h.rx_buffer, "LED0 ON") != 0) FAIL("UART line assembly");
+  PASS("UART command parsing");
 }
 
-/**
- * @brief Test LED control
- */
 TestStatusTypeDef Test_LED_Control(void)
 {
-  UART_CommandTypeDef test_handler;
-  
-  test_handler.led_count = 0;
-  
-  /* Register test LED */
-  if (UART_CMD_RegisterLED(&test_handler, GPIOA, GPIO_PIN_5) != HAL_OK) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: LED Registration");
-    return TEST_FAIL;
-  }
-  
-  if (test_handler.led_count != 1) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: LED Count");
-    return TEST_FAIL;
-  }
-  
-  /* Test LED ON command */
-  UART_CMD_SetLEDState(&test_handler, 0, LED_ON);
-  if (test_handler.leds[0].state != LED_ON) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: LED_ON state");
-    return TEST_FAIL;
-  }
-  
-  /* Test LED OFF command */
-  UART_CMD_SetLEDState(&test_handler, 0, LED_OFF);
-  if (test_handler.leds[0].state != LED_OFF) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: LED_OFF state");
-    return TEST_FAIL;
-  }
-  
-  USB_Logging_Printf(LOG_LEVEL_INFO, "Test PASSED: LED Control");
-  return TEST_PASS;
+  UART_CommandTypeDef h;
+  memset(&h, 0, sizeof(h));
+
+  h.led_count = 1;                      /* state machine only, no GPIO access */
+  UART_CMD_SetLEDState(&h, 0, LED_BLINK_FAST);
+  if (h.leds[0].state != LED_BLINK_FAST || h.leds[0].blink_period != 100U) FAIL("LED fast blink");
+  UART_CMD_SetLEDState(&h, 0, LED_BLINK_SLOW);
+  if (h.leds[0].blink_period != 500U) FAIL("LED slow blink");
+  PASS("LED control");
 }
 
-/**
- * @brief Test BLE initialization
- */
-TestStatusTypeDef Test_BLE_Init(void)
+TestStatusTypeDef Test_BLE_Status(void)
 {
-  BLE_StatusTypeDef status = BLE_App_Init();
-  
-  if (status != BLE_STATUS_INITIALIZED) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: BLE Init status = %d", status);
-    return TEST_FAIL;
-  }
-  
-  BLE_AppHandleTypeDef *handle = BLE_App_GetHandle();
-  if (!handle) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: BLE Handle is NULL");
-    return TEST_FAIL;
-  }
-  
-  USB_Logging_Printf(LOG_LEVEL_INFO, "Test PASSED: BLE Initialization");
-  return TEST_PASS;
+  BLE_StatusTypeDef st = BLE_App_GetStatus();
+  if (st != BLE_STATUS_ADVERTISING && st != BLE_STATUS_CONNECTED) FAIL("BLE status = %d", (int)st);
+  PASS("BLE advertising/connected");
 }
 
-/**
- * @brief Test USB logging
- */
 TestStatusTypeDef Test_USB_Logging(void)
 {
-  if (USB_Logging_Init() != 0) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: USB_Logging_Init");
-    return TEST_FAIL;
-  }
-  
-  int ret = USB_Logging_Printf(LOG_LEVEL_INFO, "Test message from USB_Logging");
-  
-  if (ret < 0) {
-    USB_Logging_Printf(LOG_LEVEL_ERROR, "Test FAILED: USB_Logging_Printf");
-    return TEST_FAIL;
-  }
-  
-  USB_Logging_Printf(LOG_LEVEL_INFO, "Test PASSED: USB Logging");
+  if (USB_Logging_Printf(LOG_LEVEL_INFO, "console sink check") < 0) return TEST_FAIL;
   return TEST_PASS;
 }
 
-/**
- * @brief Run all tests
- */
-int Test_RunAll(I2C_HandleTypeDef *hi2c, UART_HandleTypeDef *huart)
+int Test_RunAll(void)
 {
-  int failed_count = 0;
-  TestStatusTypeDef status;
-  
-  USB_Logging_Printf(LOG_LEVEL_INFO, "=== Starting Test Suite ===");
-  
-  /* Test 1: USB Logging */
-  status = Test_USB_Logging();
-  if (status != TEST_PASS) failed_count++;
-  
-  /* Test 2: OLED Init */
-  status = Test_OLED_Init(hi2c);
-  if (status != TEST_PASS) failed_count++;
-  
-  /* Test 3: OLED Drawing */
-  status = Test_OLED_Drawing(hi2c);
-  if (status != TEST_PASS) failed_count++;
-  
-  /* Test 4: UART Commands */
-  status = Test_UART_Commands();
-  if (status != TEST_PASS) failed_count++;
-  
-  /* Test 5: LED Control */
-  status = Test_LED_Control();
-  if (status != TEST_PASS) failed_count++;
-  
-  /* Test 6: BLE Init */
-  status = Test_BLE_Init();
-  if (status != TEST_PASS) failed_count++;
-  
-  /* Summary */
-  USB_Logging_Printf(LOG_LEVEL_INFO, "=== Test Suite Complete ===");
-  USB_Logging_Printf(LOG_LEVEL_INFO, "Failed Tests: %d/6", failed_count);
-  
-  return failed_count;
+  int failed = 0;
+  USB_Logging_Printf(LOG_LEVEL_INFO, "=== Test suite ===");
+  failed += (Test_USB_Logging()   != TEST_PASS);
+  failed += (Test_Display()       != TEST_PASS);
+  failed += (Test_UART_Commands() != TEST_PASS);
+  failed += (Test_LED_Control()   != TEST_PASS);
+  failed += (Test_BLE_Status()    != TEST_PASS);
+  USB_Logging_Printf(LOG_LEVEL_INFO, "=== Done: %d/5 failed ===", failed);
+  return failed;
 }

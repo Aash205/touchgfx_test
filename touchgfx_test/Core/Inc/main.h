@@ -62,12 +62,12 @@ void Error_Handler(void);
 #define ble_cs_GPIO_Port GPIOC
 #define ble_rst_Pin GPIO_PIN_13
 #define ble_rst_GPIO_Port GPIOF
-#define DISP_CS_Pin GPIO_PIN_0
-#define DISP_CS_GPIO_Port GPIOD
-#define DISP_DC_Pin GPIO_PIN_1
-#define DISP_DC_GPIO_Port GPIOD
-#define DISP_RES_Pin GPIO_PIN_2
-#define DISP_RES_GPIO_Port GPIOD
+#define DISP_CS_Pin GPIO_PIN_12
+#define DISP_CS_GPIO_Port GPIOG
+#define DISP_DC_Pin GPIO_PIN_8
+#define DISP_DC_GPIO_Port GPIOA
+#define DISP_RES_Pin GPIO_PIN_9
+#define DISP_RES_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

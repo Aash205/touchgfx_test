@@ -11,7 +11,7 @@ screenViewBase::screenViewBase() :
 {
     touchgfx::CanvasWidgetRenderer::setupBuffer(canvasBuffer, CANVAS_BUFFER_SIZE);
 
-    __background.setPosition(0, 0, 240, 240);
+    __background.setPosition(0, 0, 280, 240);
     __background.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
     add(__background);
 
@@ -19,7 +19,7 @@ screenViewBase::screenViewBase() :
     image1.setBitmap(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_BACKGROUNDS_240X240_POLY_ID));
     add(image1);
 
-    buttonWithIcon1.setXY(0, 95);
+    buttonWithIcon1.setXY(20, 95);
     buttonWithIcon1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID), touchgfx::Bitmap(BITMAP_ICON_THEME_IMAGES_ACTION_DONE_50_50_E8F6FB_SVG_ID), touchgfx::Bitmap(BITMAP_ICON_THEME_IMAGES_ACTION_DONE_50_50_E8F6FB_SVG_ID));
     buttonWithIcon1.setIconXY(97, 0);
     buttonWithIcon1.setAction(buttonCallback);

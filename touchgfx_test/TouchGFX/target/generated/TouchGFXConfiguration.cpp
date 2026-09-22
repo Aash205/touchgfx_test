@@ -36,7 +36,7 @@ static LCD16bpp display;
 
 static ApplicationFontProvider fontProvider;
 static Texts texts;
-static TouchGFXHAL hal(dma, display, tc, 240, 240);
+static TouchGFXHAL hal(dma, display, tc, 280, 240);
 
 void touchgfx_init()
 {

@@ -56,6 +56,9 @@
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim1;
+extern DMA_HandleTypeDef hdma_spi2_tx;
+extern UART_HandleTypeDef hlpuart1;
+extern DMA2D_HandleTypeDef hdma2d;
 
 /* USER CODE BEGIN EV */
 
@@ -174,5 +177,41 @@ void TIM1_UP_TIM16_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+
+/* The handlers below are __weak on purpose: the .ioc enables these interrupts, so CubeMX
+ * generates the same (strong) handlers above on the next regeneration. EXTI9_5 is not in the
+ * .ioc (the BlueNRG-2 pack owns that line via hexti8), so it stays a normal definition. */
+
+/**
+  * @brief DMA1 channel 5: SPI2_TX (display pixels)
+  */
+__weak void DMA1_Channel5_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_spi2_tx);
+}
+
+/**
+  * @brief DMA2D (Chrom-ART) global interrupt: TouchGFX blits / fills
+  */
+__weak void DMA2D_IRQHandler(void)
+{
+  HAL_DMA2D_IRQHandler(&hdma2d);
+}
+
+/**
+  * @brief LPUART1 global interrupt (UART command RX)
+  */
+__weak void LPUART1_IRQHandler(void)
+{
+  HAL_UART_IRQHandler(&hlpuart1);
+}
+
+/**
+  * @brief EXTI lines 5..9: BlueNRG-2 IRQ on PE8
+  */
+void EXTI9_5_IRQHandler(void)
+{
+  HAL_EXTI_IRQHandler(&hexti8);
+}
 
 /* USER CODE END 1 */

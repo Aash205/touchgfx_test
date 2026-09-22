@@ -33,6 +33,11 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 # Enable CMake support for ASM, C and C++ languages
 enable_language(C CXX ASM)
 
+# Use the application-owned linker script (adds the TouchGFX_Framebuffer NOLOAD section).
+# The CubeMX one is regenerated and does not have it.
+string(REPLACE "STM32L496XX_FLASH.ld" "linker/STM32L496XX_FLASH_app.ld"
+       CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 
@@ -50,7 +55,31 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/Src/unified.c          # ST7789V2 (Waveshare 1.69") display driver, SPI2 + DMA
+    Core/Src/ble_app.c          # BlueNRG-2 peripheral
+    Core/Src/uart_commands.c    # LPUART1 command console
+    Core/Src/usb_logging.c      # log / console sink (LPUART1)
+    Core/Src/app_tests.c        # on-target smoke tests ("TEST" command)
+    Core/Src/app_core.c         # shared AppState, LED/console owner, user button
+    Core/Src/app_bsp.c          # BlueNRG-2 SPI1 override (regeneration-safe)
+    Core/Src/usb_cdc_log.c      # USB CDC log sink (inert until the USB device is enabled)
 )
+
+# Chrom-ART (DMA2D). CubeMX lists these itself once DMA2D is enabled in the .ioc (it is);
+# add them here only if the generated list does not have them yet.
+get_target_property(_app_srcs ${CMAKE_PROJECT_NAME} SOURCES)
+foreach(_f Core/Src/dma2d.c Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_dma2d.c)
+    get_filename_component(_n ${_f} NAME)
+    set(_have FALSE)
+    foreach(_s ${_app_srcs})
+        if(_s MATCHES "${_n}$")
+            set(_have TRUE)
+        endif()
+    endforeach()
+    if(NOT _have)
+        target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${_f})
+    endif()
+endforeach()
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE

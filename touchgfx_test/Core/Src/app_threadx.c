@@ -5,16 +5,6 @@
   * @author  MCD Application Team
   * @brief   ThreadX applicative file
   ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2020-2021 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
   */
 /* USER CODE END Header */
 
@@ -23,9 +13,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-extern UART_HandleTypeDef hlpuart1;
-extern I2C_HandleTypeDef hi2c1;
+#include "main.h"
+#include "unified.h"
+#include "ble_app.h"
+#include "app_core.h"
+#include "usb_logging.h"
+#include "usb_cdc_log.h"
 
+extern UART_HandleTypeDef hlpuart1;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,9 +30,16 @@ extern I2C_HandleTypeDef hi2c1;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define THREAD_STACK_SIZE 1024
-#define THREAD_PRIORITY 20
+#define THREAD_STACK_BYTES_SMALL  3072U
+#define THREAD_STACK_BYTES_BLE    4096U
 
+/* Lower number = higher priority. The TouchGFX thread (priority 5) stays above these. */
+#define PRIO_BLE      10U
+#define PRIO_UART     11U
+#define PRIO_MONITOR  12U
+
+/* The SPI panel has no VSYNC: a periodic timer paces TouchGFX (2 ticks = 20 ms @ 100 Hz). */
+#define TOUCHGFX_VSYNC_TICKS  2U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,40 +49,26 @@ extern I2C_HandleTypeDef hi2c1;
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+extern void touchgfxSignalVSync(void);
 
-/* Thread stacks */
-static ULONG thread_ble_stack[THREAD_STACK_SIZE];
-static ULONG thread_uart_cmd_stack[THREAD_STACK_SIZE];
-static ULONG thread_monitor_stack[THREAD_STACK_SIZE];
-static ULONG thread_touchgfx_stack[THREAD_STACK_SIZE * 4];
+static TX_TIMER  vsync_timer;
 
-/* Thread control blocks */
 static TX_THREAD thread_ble;
 static TX_THREAD thread_uart_cmd;
 static TX_THREAD thread_monitor;
-static TX_THREAD thread_touchgfx;
 
-/* Semaphores */
-static TX_SEMAPHORE semaphore_ble;
-static TX_SEMAPHORE semaphore_uart;
-static TX_SEMAPHORE semaphore_monitor;
-
-/* Device handles */
-static OLED_HandleTypeDef oled_handle;
-static UART_CommandTypeDef uart_cmd_handler;
-static BLE_AppHandleTypeDef *ble_handle = NULL;
+static ULONG thread_ble_stack[THREAD_STACK_BYTES_BLE / sizeof(ULONG)];
+static ULONG thread_uart_cmd_stack[THREAD_STACK_BYTES_SMALL / sizeof(ULONG)];
+static ULONG thread_monitor_stack[THREAD_STACK_BYTES_SMALL / sizeof(ULONG)];
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-
-/* Thread entry functions */
-void thread_ble_entry(ULONG input);
-void thread_uart_cmd_entry(ULONG input);
-void thread_monitor_entry(ULONG input);
-void thread_touchgfx_entry(ULONG input);
-
+static void vsync_timer_cb(ULONG input);
+static void thread_ble_entry(ULONG input);
+static void thread_uart_cmd_entry(ULONG input);
+static void thread_monitor_entry(ULONG input);
 /* USER CODE END PFP */
 
 /**
@@ -96,7 +84,39 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   /* USER CODE END App_ThreadX_MEM_POOL */
 
   /* USER CODE BEGIN App_ThreadX_Init */
+  (void)memory_ptr;
 
+  /* Display: from now on pixel DMA yields to other threads instead of spinning. */
+  Display_RtosInit();
+
+  /* Console / logging mutex (LPUART1). */
+  USB_Logging_Init();
+
+  /* USB CDC log drain thread (inert until a host opens the port). */
+  ret = UsbCdcLog_Init();
+  if (ret != TX_SUCCESS) return ret;
+
+  /* TouchGFX frame pacing. */
+  ret = tx_timer_create(&vsync_timer, "TouchGFX VSync", vsync_timer_cb, 0,
+                        TOUCHGFX_VSYNC_TICKS, TOUCHGFX_VSYNC_TICKS, TX_AUTO_ACTIVATE);
+  if (ret != TX_SUCCESS) return ret;
+
+  /* LEDs (LD1 = PC7, LD3 = PB14), UART command console, user button, shared AppState. */
+  AppCore_Init(&hlpuart1);
+
+  ret = tx_thread_create(&thread_ble, "BLE", thread_ble_entry, 0,
+                         thread_ble_stack, sizeof(thread_ble_stack),
+                         PRIO_BLE, PRIO_BLE, TX_NO_TIME_SLICE, TX_AUTO_START);
+  if (ret != TX_SUCCESS) return ret;
+
+  ret = tx_thread_create(&thread_uart_cmd, "UART cmd", thread_uart_cmd_entry, 0,
+                         thread_uart_cmd_stack, sizeof(thread_uart_cmd_stack),
+                         PRIO_UART, PRIO_UART, TX_NO_TIME_SLICE, TX_AUTO_START);
+  if (ret != TX_SUCCESS) return ret;
+
+  ret = tx_thread_create(&thread_monitor, "Monitor", thread_monitor_entry, 0,
+                         thread_monitor_stack, sizeof(thread_monitor_stack),
+                         PRIO_MONITOR, PRIO_MONITOR, TX_NO_TIME_SLICE, TX_AUTO_START);
   /* USER CODE END App_ThreadX_Init */
 
   return ret;
@@ -110,54 +130,6 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 void MX_ThreadX_Init(void)
 {
   /* USER CODE BEGIN  Before_Kernel_Start */
-  
-  /* Initialize OLED Display */
-  if (OLED_Init(&oled_handle, &hi2c1) == HAL_OK) {
-    OLED_Clear(&oled_handle);
-    OLED_PrintStr(&oled_handle, 0, 0, "Initializing...");
-    OLED_UpdateDisplay(&oled_handle);
-  }
-  
-  /* Initialize USB Logging */
-  USB_Logging_Init();
-  USB_Logging_Printf(LOG_LEVEL_INFO, "System Startup - ThreadX Init");
-  
-  /* Initialize UART Command Handler */
-  UART_CMD_Init(&uart_cmd_handler, &hlpuart1);
-  UART_CMD_RegisterLED(&uart_cmd_handler, GPIOA, GPIO_PIN_5);  /* User LED */
-  UART_CMD_StartListening(&uart_cmd_handler);
-  
-  /* Initialize BLE */
-  BLE_App_Init();
-  BLE_App_StartAdvertising("Nucleo-BLE-Demo");
-  ble_handle = BLE_App_GetHandle();
-  USB_Logging_Printf(LOG_LEVEL_INFO, "BLE Advertising: %s", (char *)ble_handle->device_name);
-  
-  /* Create semaphores */
-  tx_semaphore_create(&semaphore_ble, "BLE_SEM", 0);
-  tx_semaphore_create(&semaphore_uart, "UART_SEM", 0);
-  tx_semaphore_create(&semaphore_monitor, "MONITOR_SEM", 0);
-  
-  /* Create threads */
-  tx_thread_create(&thread_ble, "BLE_Thread", thread_ble_entry, 0,
-                   thread_ble_stack, THREAD_STACK_SIZE,
-                   THREAD_PRIORITY + 2, THREAD_PRIORITY + 2,
-                   TX_NO_TIME_SLICE, TX_AUTO_START);
-  
-  tx_thread_create(&thread_uart_cmd, "UART_CMD_Thread", thread_uart_cmd_entry, 0,
-                   thread_uart_cmd_stack, THREAD_STACK_SIZE,
-                   THREAD_PRIORITY + 1, THREAD_PRIORITY + 1,
-                   TX_NO_TIME_SLICE, TX_AUTO_START);
-  
-  tx_thread_create(&thread_monitor, "Monitor_Thread", thread_monitor_entry, 0,
-                   thread_monitor_stack, THREAD_STACK_SIZE,
-                   THREAD_PRIORITY, THREAD_PRIORITY,
-                   TX_NO_TIME_SLICE, TX_AUTO_START);
-  
-  tx_thread_create(&thread_touchgfx, "TouchGFX_Thread", thread_touchgfx_entry, 0,
-                   thread_touchgfx_stack, THREAD_STACK_SIZE * 4,
-                   THREAD_PRIORITY - 1, THREAD_PRIORITY - 1,
-                   TX_NO_TIME_SLICE, TX_AUTO_START);
 
   /* USER CODE END  Before_Kernel_Start */
 
@@ -170,91 +142,71 @@ void MX_ThreadX_Init(void)
 
 /* USER CODE BEGIN 1 */
 
-/**
- * @brief BLE Thread Entry Function
- * @param input: Thread input parameter
- * @retval None
- */
-void thread_ble_entry(ULONG input)
+static void vsync_timer_cb(ULONG input)
 {
-  /* BLE processing loop */
-  while(1)
-  {
-    /* Wait for BLE event signal */
-    tx_semaphore_get(&semaphore_ble, TX_WAIT_FOREVER);
-    
-    /* Process BLE events */
-    /* TODO: Add BLE event processing */
-    
-    tx_thread_sleep(100);
+  (void)input;
+  touchgfxSignalVSync();
+}
+
+/* UART RX interrupt: one byte at a time into the command assembler. */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  AppCore_UartRxCplt(huart);
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  AppCore_UartError(huart);
+}
+
+/* BlueNRG-2: bring the stack up, advertise, then service HCI events. */
+static void thread_ble_entry(ULONG input)
+{
+  (void)input;
+
+  if (BLE_App_Init() == BLE_STATUS_INITIALIZED &&
+      BLE_App_StartAdvertising("Nucleo-BLE-Demo") == BLE_STATUS_ADVERTISING) {
+    USB_Logging_Printf(LOG_LEVEL_INFO, "BLE advertising as %s",
+                       (char *)BLE_App_GetHandle()->device_name);
+  } else {
+    USB_Logging_Printf(LOG_LEVEL_ERROR, "BLE bring-up failed (is the BlueNRG-2 shield fitted?)");
+  }
+
+  for (;;) {
+    BLE_App_Process();
+    tx_thread_sleep(1); /* 10 ms */
   }
 }
 
-/**
- * @brief UART Command Thread Entry Function
- * @param input: Thread input parameter
- * @retval None
- */
-void thread_uart_cmd_entry(ULONG input)
+/* LPUART1 command console + LED blink service. */
+static void thread_uart_cmd_entry(ULONG input)
 {
-  /* UART command processing loop */
-  while(1)
-  {
-    /* Process UART commands */
-    UART_CMD_Process(&uart_cmd_handler);
-    UART_CMD_UpdateLEDs(&uart_cmd_handler);
-    
-    tx_thread_sleep(50);
+  (void)input;
+
+  USB_Logging_Printf(LOG_LEVEL_INFO, "Console ready. Type HELP.");
+
+  for (;;) {
+    AppCore_Process();
+    tx_thread_sleep(2); /* 20 ms */
   }
 }
 
-/**
- * @brief Monitor Thread Entry Function
- * @param input: Thread input parameter
- * @retval None
- */
-void thread_monitor_entry(ULONG input)
+/* 1 s tick (FPS window); heartbeat log every 5 s. */
+static void thread_monitor_entry(ULONG input)
 {
-  uint32_t tick_count = 0;
-  
-  /* System monitoring loop */
-  while(1)
-  {
-    tick_count++;
-    
-    /* Update OLED display every 500ms */
-    if(tick_count % 10 == 0)
-    {
-      OLED_Clear(&oled_handle);
-      OLED_PrintStr(&oled_handle, 0, 0, "System Running");
-      OLED_PrintStr(&oled_handle, 0, 2, "BLE Active");
-      OLED_UpdateDisplay(&oled_handle);
+  (void)input;
+  uint32_t seconds = 0;
+
+  for (;;) {
+    tx_thread_sleep(100); /* 1 s */
+    AppCore_Tick1s();
+
+    if (++seconds % 5U == 0U) {
+      AppState st;
+      AppState_Get(&st);
+      USB_Logging_Printf(LOG_LEVEL_INFO, "Heartbeat %lu, BLE %d, FPS %u",
+                         (unsigned long)AppCore_Heartbeat(), (int)st.ble_status, (unsigned)st.fps);
     }
-    
-    /* Send periodic status via USB */
-    if(tick_count % 20 == 0)
-    {
-      USB_Logging_Printf(LOG_LEVEL_INFO, "Monitor: Ticks=%lu", tick_count);
-    }
-    
-    tx_thread_sleep(50);
-  }
-}
-
-/**
- * @brief TouchGFX Thread Entry Function
- * @param input: Thread input parameter
- * @retval None
- */
-void thread_touchgfx_entry(ULONG input)
-{
-  /* TouchGFX UI loop */
-  while(1)
-  {
-    /* TODO: Add TouchGFX rendering loop */
-    /* Call TouchGFX HAL::getInstance().render() or equivalent */
-    
-    tx_thread_sleep(33);  /* ~30 FPS */
   }
 }
 

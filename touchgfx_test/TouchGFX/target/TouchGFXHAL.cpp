@@ -21,6 +21,13 @@
 /* USER CODE END Header */
 
 #include <TouchGFXHAL.hpp>
+#include <touchgfx/hal/OSWrappers.hpp>
+#include <string.h>
+
+extern "C" {
+#include "unified.h"
+#include "app_state.h"
+}
 
 /* USER CODE BEGIN TouchGFXHAL.cpp */
 
@@ -34,7 +41,14 @@ void TouchGFXHAL::initialize()
     // and implement the needed functionality here.
     // Please note, HAL::initialize() must be called to initialize the framework.
 
+    // Bring up the ST7789V2 panel (SPI2 + GPIO are already configured by main()).
+    Display_Init(DISPLAY_DEFAULT_ROTATION);
+
     TouchGFXGeneratedHAL::initialize();
+
+    // Blank the framebuffer: widgets narrower than the panel leave the rest untouched.
+    memset(getTFTFrameBuffer(), 0, DISPLAY_WIDTH * DISPLAY_HEIGHT * 2U);
+    Display_FillScreenDirect(DISPLAY_COLOR_BLACK);
 }
 
 /**
@@ -87,6 +101,12 @@ void TouchGFXHAL::flushFrameBuffer(const touchgfx::Rect& rect)
     // defined in TouchGFXGeneratedHAL.cpp
 
     TouchGFXGeneratedHAL::flushFrameBuffer(rect);
+
+    // Push only the dirty rectangle to the panel over SPI (blocking).
+    Display_FlushRectRGB565(getTFTFrameBuffer(),
+                            (uint16_t)rect.x, (uint16_t)rect.y,
+                            (uint16_t)rect.width, (uint16_t)rect.height);
+    AppState_FrameFlushed();
 }
 
 bool TouchGFXHAL::blockCopy(void* RESTRICT dest, const void* RESTRICT src, uint32_t numBytes)
@@ -156,6 +176,16 @@ bool TouchGFXHAL::beginFrame()
 void TouchGFXHAL::endFrame()
 {
     TouchGFXGeneratedHAL::endFrame();
+}
+
+/**
+ * The SPI panel has no LTDC VSYNC. A ThreadX timer (see app_touchgfx.c) calls this
+ * periodically so the TouchGFX engine paces itself.
+ */
+extern "C" void touchgfxSignalVSync(void)
+{
+    touchgfx::HAL::getInstance()->vSync();
+    touchgfx::OSWrappers::signalVSync();
 }
 
 /* USER CODE END TouchGFXHAL.cpp */

@@ -50,6 +50,9 @@ extern "C" {
 #define TOUCHGFX_APP_MEM_POOL_SIZE               4096
 
 /* USER CODE BEGIN EC */
+/* USBX needs far more than the generated 1 KB: ~18 KB stack + thread stack + overhead. */
+#undef  UX_DEVICE_APP_MEM_POOL_SIZE
+#define UX_DEVICE_APP_MEM_POOL_SIZE              (22U * 1024U)
 
 /* USER CODE END EC */
 

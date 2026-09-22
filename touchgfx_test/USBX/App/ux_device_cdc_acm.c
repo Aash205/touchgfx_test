@@ -23,6 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "usb_cdc_log.h"
 
 /* USER CODE END Includes */
 
@@ -65,7 +66,7 @@
 VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance)
 {
   /* USER CODE BEGIN USBD_CDC_ACM_Activate */
-  UX_PARAMETER_NOT_USED(cdc_acm_instance);
+  UsbCdcLog_OnActivate(cdc_acm_instance);
   /* USER CODE END USBD_CDC_ACM_Activate */
 
   return;
@@ -80,7 +81,7 @@ VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance)
 VOID USBD_CDC_ACM_Deactivate(VOID *cdc_acm_instance)
 {
   /* USER CODE BEGIN USBD_CDC_ACM_Deactivate */
-  UX_PARAMETER_NOT_USED(cdc_acm_instance);
+  UsbCdcLog_OnDeactivate(cdc_acm_instance);
   /* USER CODE END USBD_CDC_ACM_Deactivate */
 
   return;

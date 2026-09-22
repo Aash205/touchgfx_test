@@ -9,13 +9,14 @@
           {
             "Type": "Image",
             "Name": "image1",
-            "Width": 240,
+            "Width": 280,
             "Height": 240,
             "RelativeFilename": "__generated\\alternate_theme_images_backgrounds_240x240_poly.png"
           },
           {
             "Type": "ButtonWithIcon",
             "Name": "buttonWithIcon1",
+            "X": 20,
             "Y": 95,
             "Width": 240,
             "Height": 50,
@@ -56,14 +57,14 @@
           {
             "Type": "Image",
             "Name": "image1",
-            "Width": 240,
+            "Width": 280,
             "Height": 240,
             "RelativeFilename": "__generated\\light_theme_images_backgrounds_240x240_pink_shine.png"
           },
           {
             "Type": "ButtonWithIcon",
             "Name": "buttonWithIcon1",
-            "X": -58,
+            "X": -45,
             "Y": 108,
             "Width": 370,
             "Height": 50,
@@ -97,7 +98,7 @@
     "CustomContainerDefinitions": [],
     "Name": "touchgfx_test",
     "Resolution": {
-      "Width": 240,
+      "Width": 280,
       "Height": 240
     },
     "SelectedColorDepth": 16,
@@ -117,7 +118,7 @@
     ],
     "AvailableResolutions": [
       {
-        "Width": 240,
+        "Width": 280,
         "Height": 240
       }
     ],

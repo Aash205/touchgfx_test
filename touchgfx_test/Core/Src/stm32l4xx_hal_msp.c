@@ -240,6 +240,10 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     GPIO_InitStruct.Alternate = GPIO_AF8_LPUART1;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+    /* LPUART1 interrupt (UART command RX) */
+    HAL_NVIC_SetPriority(LPUART1_IRQn, 6, 0);
+    HAL_NVIC_EnableIRQ(LPUART1_IRQn);
+
     /* USER CODE BEGIN LPUART1_MspInit 1 */
 
     /* USER CODE END LPUART1_MspInit 1 */
@@ -277,6 +281,8 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 
 }
 
+DMA_HandleTypeDef hdma_spi2_tx;
+
 /**
   * @brief SPI MSP Initialization
   * This function configures the hardware resources used in this example
@@ -294,26 +300,33 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     /* Peripheral clock enable */
     __HAL_RCC_SPI2_CLK_ENABLE();
 
-    __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**SPI2 GPIO Configuration
-    PC3     ------> SPI2_MOSI
     PB10     ------> SPI2_SCK
-    PB14     ------> SPI2_MISO
+    PB15     ------> SPI2_MOSI
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_3;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_14;
+    GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    /* SPI2_TX DMA (display pixel stream, 16-bit frames) */
+    hdma_spi2_tx.Instance = DMA1_Channel5;
+    hdma_spi2_tx.Init.Request = DMA_REQUEST_1;
+    hdma_spi2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hdma_spi2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_spi2_tx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_spi2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_spi2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+    hdma_spi2_tx.Init.Mode = DMA_NORMAL;
+    hdma_spi2_tx.Init.Priority = DMA_PRIORITY_HIGH;
+    if (HAL_DMA_Init(&hdma_spi2_tx) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    __HAL_LINKDMA(hspi, hdmatx, hdma_spi2_tx);
 
     /* USER CODE BEGIN SPI2_MspInit 1 */
 
@@ -340,13 +353,12 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
     __HAL_RCC_SPI2_CLK_DISABLE();
 
     /**SPI2 GPIO Configuration
-    PC3     ------> SPI2_MOSI
     PB10     ------> SPI2_SCK
-    PB14     ------> SPI2_MISO
+    PB15     ------> SPI2_MOSI
     */
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_3);
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_10|GPIO_PIN_15);
 
-    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_10|GPIO_PIN_14);
+    HAL_DMA_DeInit(hspi->hdmatx);
 
     /* USER CODE BEGIN SPI2_MspDeInit 1 */
 
