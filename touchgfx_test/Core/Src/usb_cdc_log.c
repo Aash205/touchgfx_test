@@ -16,7 +16,8 @@
 #define WRITE_TIMEOUT_TICKS 20U      /* give up on a stalled host after 200 ms */
 
 static UX_SLAVE_CLASS_CDC_ACM *volatile s_cdc;
-static volatile UINT s_active;
+static volatile UINT s_configured;
+static volatile UINT s_port_open;
 
 static unsigned char s_ring[RING_SIZE];
 static volatile unsigned s_head;   /* written by producers */
@@ -41,28 +42,29 @@ void UsbCdcLog_OnActivate(VOID *cdc_acm_instance)
   s_cdc = (UX_SLAVE_CLASS_CDC_ACM *)cdc_acm_instance;
   ux_device_class_cdc_acm_ioctl(s_cdc, UX_SLAVE_CLASS_CDC_ACM_IOCTL_SET_WRITE_TIMEOUT, (VOID *)timeout);
 
-  s_tail = s_head;   /* drop anything logged before the host opened the port */
-  s_active = 1;
+  /* Keep messages produced during boot. They are drained as soon as the host
+     finishes enumeration and opens the CDC port. */
+  s_configured = 1;
+  s_port_open = 0;
 }
 
 void UsbCdcLog_OnDeactivate(VOID *cdc_acm_instance)
 {
   (void)cdc_acm_instance;
-  s_active = 0;
+  s_configured = 0;
+  s_port_open = 0;
   s_cdc = UX_NULL;
 }
 
 int UsbCdcLog_IsActive(void)
 {
-  return (int)s_active;
+  return (int)s_port_open;
 }
 
 unsigned UsbCdcLog_Write(const unsigned char *data, unsigned size)
 {
   unsigned n = 0;
   TX_INTERRUPT_SAVE_AREA
-
-  if (!s_active) return 0;
 
   TX_DISABLE
   while (n < size && (s_head - s_tail) < RING_SIZE) {
@@ -83,12 +85,31 @@ static VOID drain_entry(ULONG input)
   for (;;) {
     unsigned n = 0;
 
+    /* Enumeration alone does not mean a terminal is listening. Wait for the
+       host to assert DTR so boot messages are not lost before Serial Monitor
+       opens the COM port. */
+    if (s_configured && s_cdc != UX_NULL) {
+      UX_SLAVE_CLASS_CDC_ACM_LINE_STATE_PARAMETER line_state = {0};
+      if (ux_device_class_cdc_acm_ioctl(s_cdc,
+                                        UX_SLAVE_CLASS_CDC_ACM_IOCTL_GET_LINE_STATE,
+                                        &line_state) == UX_SUCCESS) {
+        s_port_open = line_state.ux_slave_class_cdc_acm_parameter_dtr ? 1U : 0U;
+      }
+    } else {
+      s_port_open = 0;
+    }
+
+    if (!s_port_open) {
+      tx_thread_sleep(DRAIN_PERIOD_TICKS);
+      continue;
+    }
+
     while (s_tail != s_head && n < sizeof(chunk)) {
       chunk[n++] = s_ring[s_tail & (RING_SIZE - 1U)];
       s_tail++;
     }
 
-    if (n > 0 && s_active && s_cdc != UX_NULL) {
+    if (n > 0 && s_port_open && s_cdc != UX_NULL) {
       ULONG actual = 0;
       ux_device_class_cdc_acm_write(s_cdc, chunk, n, &actual);   /* result ignored: best effort */
     }

@@ -26,7 +26,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 static BLE_AppHandleTypeDef ble_app_handle = {
-  .status = BLE_STATUS_IDLE,
+  .status = BLE_APP_STATUS_IDLE,
   .device_name = "Nucleo-BLE-Demo",
   .connection_handle = 0xFFFF,
   .is_paired = 0,
@@ -69,41 +69,54 @@ static void ble_sync(void);
 BLE_StatusTypeDef BLE_App_Init(void)
 {
   tBleStatus ret;
+  const char *stage = "HCI reset";
   /* Static random-looking public address; change per board if several are used. */
   uint8_t bdaddr[6] = {0x01, 0x00, 0x00, 0xE1, 0x80, 0x02};
 
-  ble_app_handle.status = BLE_STATUS_INITIALIZING;
+  ble_app_handle.status = BLE_APP_STATUS_INITIALIZING;
 
   hci_init(ble_user_notify, NULL);
-  hci_reset();
+  /* Allow the BlueNRG-M2SP DTM firmware to finish booting after hardware reset. */
   HAL_Delay(100);
+  ret = hci_reset();
+  if (ret != BLE_STATUS_SUCCESS) goto fail;
 
+  /* hci_reset() reboots the BlueNRG-2 controller. ST's X-CUBE-BLE2
+   * reference applications require at least 2000 ms before the next ACI
+   * command so both BlueNRG-2 and BlueNRG-2N firmware are ready. */
+  HAL_Delay(2000);
+
+  stage = "public address";
   ret = aci_hal_write_config_data(CONFIG_DATA_PUBADDR_OFFSET, sizeof(bdaddr), bdaddr);
   if (ret != BLE_STATUS_SUCCESS) goto fail;
 
+  stage = "GATT init";
   ret = aci_gatt_init();
   if (ret != BLE_STATUS_SUCCESS) goto fail;
 
+  stage = "GAP init";
   ret = aci_gap_init(GAP_PERIPHERAL_ROLE, 0,
                      (uint8_t)strlen((char *)ble_app_handle.device_name),
                      &gap_service_handle, &gap_name_char_handle, &gap_appearance_char_handle);
   if (ret != BLE_STATUS_SUCCESS) goto fail;
 
+  stage = "device name";
   ret = aci_gatt_update_char_value(gap_service_handle, gap_name_char_handle, 0,
                                    (uint8_t)strlen((char *)ble_app_handle.device_name),
                                    ble_app_handle.device_name);
   if (ret != BLE_STATUS_SUCCESS) goto fail;
 
+  stage = "demo service";
   ret = ble_add_demo_service();
   if (ret != BLE_STATUS_SUCCESS) goto fail;
 
-  ble_app_handle.status = BLE_STATUS_INITIALIZED;
-  return BLE_STATUS_INITIALIZED;
+  ble_app_handle.status = BLE_APP_STATUS_INITIALIZED;
+  return BLE_APP_STATUS_INITIALIZED;
 
 fail:
-  USB_Logging_Printf(LOG_LEVEL_ERROR, "BLE init failed: 0x%02X", ret);
-  ble_app_handle.status = BLE_STATUS_ERROR;
-  return BLE_STATUS_ERROR;
+  USB_Logging_Printf(LOG_LEVEL_ERROR, "BLE init failed at %s: 0x%02X", stage, ret);
+  ble_app_handle.status = BLE_APP_STATUS_ERROR;
+  return BLE_APP_STATUS_ERROR;
 }
 
 /**
@@ -111,7 +124,7 @@ fail:
  */
 BLE_StatusTypeDef BLE_App_StartAdvertising(const char *device_name)
 {
-  if (!device_name || ble_app_handle.status == BLE_STATUS_ERROR) return BLE_STATUS_ERROR;
+  if (!device_name || ble_app_handle.status == BLE_APP_STATUS_ERROR) return BLE_APP_STATUS_ERROR;
 
   strncpy((char *)ble_app_handle.device_name, device_name, sizeof(ble_app_handle.device_name) - 1);
   return ble_set_discoverable();
@@ -122,10 +135,10 @@ BLE_StatusTypeDef BLE_App_StartAdvertising(const char *device_name)
  */
 BLE_StatusTypeDef BLE_App_StopAdvertising(void)
 {
-  if (aci_gap_set_non_discoverable() != BLE_STATUS_SUCCESS) return BLE_STATUS_ERROR;
+  if (aci_gap_set_non_discoverable() != BLE_STATUS_SUCCESS) return BLE_APP_STATUS_ERROR;
 
-  ble_app_handle.status = BLE_STATUS_INITIALIZED;
-  return BLE_STATUS_INITIALIZED;
+  ble_app_handle.status = BLE_APP_STATUS_INITIALIZED;
+  return BLE_APP_STATUS_INITIALIZED;
 }
 
 /**
@@ -161,7 +174,7 @@ int BLE_App_SendData(uint8_t *data, uint16_t size)
 {
   (void)data;
   (void)size;
-  if (ble_app_handle.status != BLE_STATUS_CONNECTED) {
+  if (ble_app_handle.status != BLE_APP_STATUS_CONNECTED) {
     return -1;
   }
   return -1; /* TODO: add a GATT service/characteristic and aci_gatt_update_char_value() */
@@ -204,7 +217,7 @@ static tBleStatus ble_add_demo_service(void)
 /* Push LED changes to the LED characteristic immediately, status (notify) once a second. */
 static void ble_sync(void)
 {
-  if (demo_service_handle == 0 || ble_app_handle.status != BLE_STATUS_CONNECTED) return;
+  if (demo_service_handle == 0 || ble_app_handle.status != BLE_APP_STATUS_CONNECTED) return;
 
   uint8_t mask = led_mask_get();
   if (mask != last_led_mask) {
@@ -241,12 +254,12 @@ static BLE_StatusTypeDef ble_set_discoverable(void)
                                             0, NULL, 0, 0);
   if (ret != BLE_STATUS_SUCCESS) {
     USB_Logging_Printf(LOG_LEVEL_ERROR, "BLE advertise failed: 0x%02X", ret);
-    ble_app_handle.status = BLE_STATUS_ERROR;
-    return BLE_STATUS_ERROR;
+    ble_app_handle.status = BLE_APP_STATUS_ERROR;
+    return BLE_APP_STATUS_ERROR;
   }
 
-  ble_app_handle.status = BLE_STATUS_ADVERTISING;
-  return BLE_STATUS_ADVERTISING;
+  ble_app_handle.status = BLE_APP_STATUS_ADVERTISING;
+  return BLE_APP_STATUS_ADVERTISING;
 }
 
 /* Called for each queued HCI packet: route events to the middleware's handler tables
@@ -300,7 +313,7 @@ void hci_le_connection_complete_event(uint8_t Status, uint16_t Connection_Handle
 
   if (Status == BLE_STATUS_SUCCESS) {
     ble_app_handle.connection_handle = Connection_Handle;
-    ble_app_handle.status = BLE_STATUS_CONNECTED;
+    ble_app_handle.status = BLE_APP_STATUS_CONNECTED;
     last_led_mask = 0xFF;
     USB_Logging_Printf(LOG_LEVEL_INFO, "BLE connected (handle 0x%04X)", Connection_Handle);
   }

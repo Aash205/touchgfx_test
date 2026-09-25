@@ -4,10 +4,10 @@
   * @file    usb_logging.c
   * @brief   Logging / console output.
   *
-  *          Sinks: LPUART1 (PC1 TX, PC0 RX; 115200 8N1, always) and USB CDC-ACM
-  *          (usb_cdc_log.c, only while a host has the port open). Both are fed from
-  *          USB_Logging_SendRaw(), serialised by a ThreadX mutex. The USB path is inert
-  *          until the USB_OTG_FS device + USBX controller code are generated from the .ioc.
+  *          Primary sink: USBX CDC-ACM through the board's User USB connector.
+  *          Boot messages are queued before enumeration and drained after the host
+  *          opens the virtual COM port. LPUART remains configured for the legacy
+  *          command receiver, but logging no longer depends on ST-LINK VCP routing.
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -22,8 +22,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 extern UART_HandleTypeDef hlpuart1;
-
-#define LOG_UART_TIMEOUT_MS 200U
 
 static TX_MUTEX log_mutex;
 static volatile uint8_t log_mutex_ready = 0;
@@ -106,13 +104,12 @@ int USB_Logging_SendRaw(uint8_t *data, uint16_t size)
     locked = 1;
   }
 
-  /* Tee: USB CDC when a host has the port open (non-blocking, dropped otherwise), UART always. */
-  UsbCdcLog_Write(data, size);
-  HAL_StatusTypeDef st = HAL_UART_Transmit(&hlpuart1, data, size, LOG_UART_TIMEOUT_MS);
+  /* Queue to USB even before enumeration so early BLE/RTOS diagnostics survive. */
+  unsigned queued = UsbCdcLog_Write(data, size);
 
   if (locked) tx_mutex_put(&log_mutex);
 
-  return (st == HAL_OK) ? (int)size : -1;
+  return (queued == size) ? (int)size : -1;
 }
 
 /**

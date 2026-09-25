@@ -61,7 +61,7 @@ TestStatusTypeDef Test_LED_Control(void)
 TestStatusTypeDef Test_BLE_Status(void)
 {
   BLE_StatusTypeDef st = BLE_App_GetStatus();
-  if (st != BLE_STATUS_ADVERTISING && st != BLE_STATUS_CONNECTED) FAIL("BLE status = %d", (int)st);
+  if (st != BLE_APP_STATUS_ADVERTISING && st != BLE_APP_STATUS_CONNECTED) FAIL("BLE status = %d", (int)st);
   PASS("BLE advertising/connected");
 }
 

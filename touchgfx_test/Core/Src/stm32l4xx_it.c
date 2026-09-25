@@ -55,10 +55,10 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern TIM_HandleTypeDef htim1;
-extern DMA_HandleTypeDef hdma_spi2_tx;
-extern UART_HandleTypeDef hlpuart1;
 extern DMA2D_HandleTypeDef hdma2d;
+extern DMA_HandleTypeDef hdma_spi2_tx;
+extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
+extern TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN EV */
 
@@ -163,6 +163,34 @@ void DebugMon_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles EXTI line3 interrupt.
+  */
+void EXTI3_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI3_IRQn 0 */
+
+  /* USER CODE END EXTI3_IRQn 0 */
+  HAL_EXTI_IRQHandler(&H_EXTI_3);
+  /* USER CODE BEGIN EXTI3_IRQn 1 */
+
+  /* USER CODE END EXTI3_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 channel5 global interrupt.
+  */
+void DMA1_Channel5_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel5_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_spi2_tx);
+  /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel5_IRQn 1 */
+}
+
+/**
   * @brief This function handles TIM1 update interrupt and TIM16 global interrupt.
   */
 void TIM1_UP_TIM16_IRQHandler(void)
@@ -176,42 +204,35 @@ void TIM1_UP_TIM16_IRQHandler(void)
   /* USER CODE END TIM1_UP_TIM16_IRQn 1 */
 }
 
+/**
+  * @brief This function handles USB OTG FS global interrupt.
+  */
+void OTG_FS_IRQHandler(void)
+{
+  /* USER CODE BEGIN OTG_FS_IRQn 0 */
+
+  /* USER CODE END OTG_FS_IRQn 0 */
+  HAL_PCD_IRQHandler(&hpcd_USB_OTG_FS);
+  /* USER CODE BEGIN OTG_FS_IRQn 1 */
+
+  /* USER CODE END OTG_FS_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA2D global interrupt.
+  */
+void DMA2D_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA2D_IRQn 0 */
+
+  /* USER CODE END DMA2D_IRQn 0 */
+  HAL_DMA2D_IRQHandler(&hdma2d);
+  /* USER CODE BEGIN DMA2D_IRQn 1 */
+
+  /* USER CODE END DMA2D_IRQn 1 */
+}
+
 /* USER CODE BEGIN 1 */
 
-/* The handlers below are __weak on purpose: the .ioc enables these interrupts, so CubeMX
- * generates the same (strong) handlers above on the next regeneration. EXTI9_5 is not in the
- * .ioc (the BlueNRG-2 pack owns that line via hexti8), so it stays a normal definition. */
-
-/**
-  * @brief DMA1 channel 5: SPI2_TX (display pixels)
-  */
-__weak void DMA1_Channel5_IRQHandler(void)
-{
-  HAL_DMA_IRQHandler(&hdma_spi2_tx);
-}
-
-/**
-  * @brief DMA2D (Chrom-ART) global interrupt: TouchGFX blits / fills
-  */
-__weak void DMA2D_IRQHandler(void)
-{
-  HAL_DMA2D_IRQHandler(&hdma2d);
-}
-
-/**
-  * @brief LPUART1 global interrupt (UART command RX)
-  */
-__weak void LPUART1_IRQHandler(void)
-{
-  HAL_UART_IRQHandler(&hlpuart1);
-}
-
-/**
-  * @brief EXTI lines 5..9: BlueNRG-2 IRQ on PE8
-  */
-void EXTI9_5_IRQHandler(void)
-{
-  HAL_EXTI_IRQHandler(&hexti8);
-}
 
 /* USER CODE END 1 */

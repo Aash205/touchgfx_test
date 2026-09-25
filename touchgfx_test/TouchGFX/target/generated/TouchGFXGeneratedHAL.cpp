@@ -17,10 +17,10 @@
   */
 
 #include <TouchGFXGeneratedHAL.hpp>
-#include <touchgfx/hal/PaintImpl.hpp>
-#include <touchgfx/hal/PaintRGB565Impl.hpp>
 #include <touchgfx/hal/OSWrappers.hpp>
 #include <gui/common/FrontendHeap.hpp>
+#include <touchgfx/hal/PaintImpl.hpp>
+#include <touchgfx/hal/PaintRGB565Impl.hpp>
 
 #include "stm32l4xx.h"
 
@@ -42,17 +42,14 @@ void TouchGFXGeneratedHAL::initialize()
 
 void TouchGFXGeneratedHAL::configureInterrupts()
 {
-    NVIC_SetPriority(DMA2D_IRQn, 9);
 }
 
 void TouchGFXGeneratedHAL::enableInterrupts()
 {
-    NVIC_EnableIRQ(DMA2D_IRQn);
 }
 
 void TouchGFXGeneratedHAL::disableInterrupts()
 {
-    NVIC_DisableIRQ(DMA2D_IRQn);
 }
 
 void TouchGFXGeneratedHAL::enableLCDControllerInterrupt()

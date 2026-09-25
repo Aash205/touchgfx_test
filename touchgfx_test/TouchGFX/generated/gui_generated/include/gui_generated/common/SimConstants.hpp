@@ -4,7 +4,7 @@
 #ifndef SIMCONSTANTS_HPP
 #define SIMCONSTANTS_HPP
 
-static unsigned short SIM_WIDTH = 240;
+static unsigned short SIM_WIDTH = 280;
 static unsigned short SIM_HEIGHT = 240;
 #define SIM_TITLE "touchgfx_test"
 

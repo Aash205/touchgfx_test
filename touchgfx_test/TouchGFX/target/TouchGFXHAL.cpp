@@ -21,15 +21,13 @@
 /* USER CODE END Header */
 
 #include <TouchGFXHAL.hpp>
-#include <touchgfx/hal/OSWrappers.hpp>
-#include <string.h>
-
-extern "C" {
-#include "unified.h"
-#include "app_state.h"
-}
 
 /* USER CODE BEGIN TouchGFXHAL.cpp */
+
+#include <touchgfx/hal/OSWrappers.hpp>
+#include "app_state.h"
+#include "unified.h"
+#include <cstring>
 
 using namespace touchgfx;
 
@@ -47,7 +45,7 @@ void TouchGFXHAL::initialize()
     TouchGFXGeneratedHAL::initialize();
 
     // Blank the framebuffer: widgets narrower than the panel leave the rest untouched.
-    memset(getTFTFrameBuffer(), 0, DISPLAY_WIDTH * DISPLAY_HEIGHT * 2U);
+    std::memset(getTFTFrameBuffer(), 0, DISPLAY_WIDTH * DISPLAY_HEIGHT * 2U);
     Display_FillScreenDirect(DISPLAY_COLOR_BLACK);
 }
 

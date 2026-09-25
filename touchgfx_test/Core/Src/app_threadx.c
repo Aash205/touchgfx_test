@@ -89,10 +89,10 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   /* Display: from now on pixel DMA yields to other threads instead of spinning. */
   Display_RtosInit();
 
-  /* Console / logging mutex (LPUART1). */
+  /* Console/logging mutex. Log output is sent through USBX CDC-ACM. */
   USB_Logging_Init();
 
-  /* USB CDC log drain thread (inert until a host opens the port). */
+  /* USB CDC log drain thread; boot logs queue until the host enumerates it. */
   ret = UsbCdcLog_Init();
   if (ret != TX_SUCCESS) return ret;
 
@@ -164,8 +164,8 @@ static void thread_ble_entry(ULONG input)
 {
   (void)input;
 
-  if (BLE_App_Init() == BLE_STATUS_INITIALIZED &&
-      BLE_App_StartAdvertising("Nucleo-BLE-Demo") == BLE_STATUS_ADVERTISING) {
+  if (BLE_App_Init() == BLE_APP_STATUS_INITIALIZED &&
+      BLE_App_StartAdvertising("Nucleo-BLE-Demo") == BLE_APP_STATUS_ADVERTISING) {
     USB_Logging_Printf(LOG_LEVEL_INFO, "BLE advertising as %s",
                        (char *)BLE_App_GetHandle()->device_name);
   } else {
@@ -204,8 +204,11 @@ static void thread_monitor_entry(ULONG input)
     if (++seconds % 5U == 0U) {
       AppState st;
       AppState_Get(&st);
-      USB_Logging_Printf(LOG_LEVEL_INFO, "Heartbeat %lu, BLE %d, FPS %u",
-                         (unsigned long)AppCore_Heartbeat(), (int)st.ble_status, (unsigned)st.fps);
+      USB_Logging_Printf(LOG_LEVEL_INFO,
+                         "HEALTH ThreadX=OK USBX=%s TouchGFX_FPS=%u BLE=%d Heartbeat=%lu",
+                         UsbCdcLog_IsActive() ? "ACTIVE" : "WAIT",
+                         (unsigned)st.fps, (int)st.ble_status,
+                         (unsigned long)AppCore_Heartbeat());
     }
   }
 }

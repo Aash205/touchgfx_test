@@ -8,6 +8,7 @@
 #include "app_core.h"
 #include "uart_commands.h"
 #include "ble_app.h"
+#include "tx_api.h"
 
 #define USER_BTN_PORT   GPIOC          /* Nucleo B1 (blue), active high */
 #define USER_BTN_PIN    GPIO_PIN_13
@@ -90,7 +91,9 @@ void AppState_Get(AppState *out)
     out->led[i] = (i < s_console.led_count) && (s_console.leds[i].state != LED_OFF);
   }
   out->ble_status = (uint8_t)BLE_App_GetStatus();
-  out->uptime_s = HAL_GetTick() / 1000U;
+  /* Use the RTOS clock for application uptime. It starts when ThreadX starts and
+     is independent of the HAL peripheral time base used by driver timeouts. */
+  out->uptime_s = (uint32_t)(tx_time_get() / TX_TIMER_TICKS_PER_SECOND);
   out->heartbeat = s_heartbeat;
   out->fps = s_fps;
 }

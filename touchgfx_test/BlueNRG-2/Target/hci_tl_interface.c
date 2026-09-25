@@ -30,7 +30,7 @@
 #define TIMEOUT_IRQ_HIGH  1000U
 
 /* Private variables ---------------------------------------------------------*/
-EXTI_HandleTypeDef hexti8;
+EXTI_HandleTypeDef hexti3;
 
 /* Private function prototypes -----------------------------------------------*/
 static void HCI_TL_SPI_Enable_IRQ(void);
@@ -322,10 +322,10 @@ void hci_tl_lowlevel_init(void)
   /* USER CODE END hci_tl_lowlevel_init 2 */
 
   /* Register event irq handler */
-  HAL_EXTI_GetHandle(&hexti8, EXTI_LINE_8);
-  HAL_EXTI_RegisterCallback(&hexti8, HAL_EXTI_COMMON_CB_ID, hci_tl_lowlevel_isr);
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+  HAL_EXTI_GetHandle(&hexti3, EXTI_LINE_3);
+  HAL_EXTI_RegisterCallback(&hexti3, HAL_EXTI_COMMON_CB_ID, hci_tl_lowlevel_isr);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
   /* USER CODE BEGIN hci_tl_lowlevel_init 3 */
 

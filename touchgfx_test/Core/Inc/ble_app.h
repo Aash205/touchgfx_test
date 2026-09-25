@@ -20,13 +20,13 @@ extern "C" {
 
 /* BLE Status Codes ----------------------------------------------------------*/
 typedef enum {
-  BLE_STATUS_IDLE,
-  BLE_STATUS_INITIALIZING,
-  BLE_STATUS_INITIALIZED,
-  BLE_STATUS_ADVERTISING,
-  BLE_STATUS_CONNECTED,
-  BLE_STATUS_PAIRED,
-  BLE_STATUS_ERROR
+  BLE_APP_STATUS_IDLE,
+  BLE_APP_STATUS_INITIALIZING,
+  BLE_APP_STATUS_INITIALIZED,
+  BLE_APP_STATUS_ADVERTISING,
+  BLE_APP_STATUS_CONNECTED,
+  BLE_APP_STATUS_PAIRED,
+  BLE_APP_STATUS_ERROR
 } BLE_StatusTypeDef;
 
 /* BLE Application Handle ---------------------------------------------------*/

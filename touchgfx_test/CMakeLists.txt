@@ -65,21 +65,12 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/usb_cdc_log.c      # USB CDC log sink (inert until the USB device is enabled)
 )
 
-# Chrom-ART (DMA2D). CubeMX lists these itself once DMA2D is enabled in the .ioc (it is);
-# add them here only if the generated list does not have them yet.
-get_target_property(_app_srcs ${CMAKE_PROJECT_NAME} SOURCES)
-foreach(_f Core/Src/dma2d.c Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_dma2d.c)
-    get_filename_component(_n ${_f} NAME)
-    set(_have FALSE)
-    foreach(_s ${_app_srcs})
-        if(_s MATCHES "${_n}$")
-            set(_have TRUE)
-        endif()
-    endforeach()
-    if(NOT _have)
-        target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${_f})
-    endif()
-endforeach()
+# STM32 USBX device-controller bridge. CubeMX enabled USBX CDC-ACM but did not
+# add these port sources, so the USB peripheral was never attached to USBX.
+file(GLOB USBX_DCD_STM32_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/USBX/Target/ux_dcd_stm32*.c"
+)
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${USBX_DCD_STM32_SOURCES})
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
