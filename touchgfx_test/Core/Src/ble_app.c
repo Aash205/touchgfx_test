@@ -52,9 +52,14 @@ static uint16_t gap_service_handle;
 static uint16_t gap_name_char_handle;
 static uint16_t gap_appearance_char_handle;
 
-/* Advertising interval in 0.625 ms units: 100 .. 200 ms */
-#define BLE_ADV_INTERVAL_MIN  0x00A0U
-#define BLE_ADV_INTERVAL_MAX  0x0140U
+/* Advertising event interval uses 0.625 ms units: 100 .. 200 ms. */
+#define BLE_ADV_INTERVAL_MIN_UNITS  0x00A0U
+#define BLE_ADV_INTERVAL_MAX_UNITS  0x0140U
+
+/* Remain discoverable for two minutes, then stop until advertising is restarted. */
+#define BLE_ADV_DURATION_MS         120000UL
+
+static uint32_t advertising_start_tick;
 
 /* Private function prototypes -----------------------------------------------*/
 static void ble_user_notify(void *pData);
@@ -135,7 +140,10 @@ BLE_StatusTypeDef BLE_App_StartAdvertising(const char *device_name)
  */
 BLE_StatusTypeDef BLE_App_StopAdvertising(void)
 {
-  if (aci_gap_set_non_discoverable() != BLE_STATUS_SUCCESS) return BLE_APP_STATUS_ERROR;
+  if (aci_gap_set_non_discoverable() != BLE_STATUS_SUCCESS) {
+    ble_app_handle.status = BLE_APP_STATUS_ERROR;
+    return BLE_APP_STATUS_ERROR;
+  }
 
   ble_app_handle.status = BLE_APP_STATUS_INITIALIZED;
   return BLE_APP_STATUS_INITIALIZED;
@@ -162,8 +170,21 @@ BLE_AppHandleTypeDef *BLE_App_GetHandle(void)
  */
 void BLE_App_Process(void)
 {
+  uint32_t now;
+
   hci_user_evt_proc();
-  ble_app_handle.last_update_time = HAL_GetTick();
+  now = HAL_GetTick();
+  ble_app_handle.last_update_time = now;
+
+  if ((ble_app_handle.status == BLE_APP_STATUS_ADVERTISING) &&
+      ((uint32_t)(now - advertising_start_tick) >= BLE_ADV_DURATION_MS)) {
+    if (BLE_App_StopAdvertising() == BLE_APP_STATUS_INITIALIZED) {
+      USB_Logging_Printf(LOG_LEVEL_INFO, "BLE advertising stopped after 120 seconds");
+    } else {
+      USB_Logging_Printf(LOG_LEVEL_ERROR, "BLE advertising timeout stop failed");
+    }
+  }
+
   ble_sync();
 }
 
@@ -248,7 +269,9 @@ static BLE_StatusTypeDef ble_set_discoverable(void)
   memcpy(&local_name[1], ble_app_handle.device_name, name_len);
 
   aci_gap_set_non_discoverable();
-  tBleStatus ret = aci_gap_set_discoverable(ADV_IND, BLE_ADV_INTERVAL_MIN, BLE_ADV_INTERVAL_MAX,
+  tBleStatus ret = aci_gap_set_discoverable(ADV_IND,
+                                            BLE_ADV_INTERVAL_MIN_UNITS,
+                                            BLE_ADV_INTERVAL_MAX_UNITS,
                                             PUBLIC_ADDR, NO_WHITE_LIST_USE,
                                             (uint8_t)(name_len + 1U), local_name,
                                             0, NULL, 0, 0);
@@ -259,6 +282,7 @@ static BLE_StatusTypeDef ble_set_discoverable(void)
   }
 
   ble_app_handle.status = BLE_APP_STATUS_ADVERTISING;
+  advertising_start_tick = HAL_GetTick();
   return BLE_APP_STATUS_ADVERTISING;
 }
 

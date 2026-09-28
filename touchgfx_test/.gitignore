@@ -1,3 +1,54 @@
-build
-mx.scratch
-!.settings
+# CMake / Ninja build trees
+/build/
+**/build/
+/cmake-build-*/
+/CMakeCache.txt
+/CMakeFiles/
+/cmake_install.cmake
+/build.ninja
+/.ninja_deps
+/.ninja_log
+/compile_commands.json
+
+# STM32CubeMX temporary output
+/MXTmpFiles/
+/mx.scratch/
+
+# TouchGFX build and simulator output
+/TouchGFX/build/
+/TouchGFX/simulator/gcc/build/
+/TouchGFX/simulator/msvs/.vs/
+/TouchGFX/simulator/msvs/Debug/
+/TouchGFX/simulator/msvs/Release/
+/TouchGFX/simulator/msvs/x64/
+/TouchGFX/simulator/msvs/x86/
+
+# Compiler and linker intermediates outside the normal build directories
+*.o
+*.obj
+*.d
+*.su
+*.cyclo
+*.elf
+*.hex
+*.map
+*.lst
+
+# Local IDE state (shared project configuration remains tracked)
+/.cache/
+/.idea/
+/.metadata/
+*.code-workspace
+
+# Temporary, log, and operating-system files
+*.bak
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+Desktop.ini
+Thumbs.db
+
+# Keep the STM32CubeIDE project settings committed.
+!/.settings/

@@ -43,7 +43,7 @@ typedef struct {
 int USB_Logging_Init(void);
 
 /**
- * @brief Send log message via USB
+ * @brief Send a formatted log message to LPUART1 and USB CDC
  * @param level: Log level
  * @param format: Format string (printf style)
  * @retval Status
@@ -51,7 +51,7 @@ int USB_Logging_Init(void);
 int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...);
 
 /**
- * @brief Send raw data via USB
+ * @brief Send raw data to LPUART1 and USB CDC
  * @param data: Data buffer
  * @param size: Data size
  * @retval Status

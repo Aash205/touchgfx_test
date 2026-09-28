@@ -56,6 +56,7 @@ void EXTI3_IRQHandler(void);
 void DMA1_Channel5_IRQHandler(void);
 void TIM1_UP_TIM16_IRQHandler(void);
 void OTG_FS_IRQHandler(void);
+void LPUART1_IRQHandler(void);
 void DMA2D_IRQHandler(void);
 /* USER CODE BEGIN EFP */
 

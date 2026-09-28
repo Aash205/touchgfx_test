@@ -87,7 +87,7 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   (void)memory_ptr;
 
   /* Display: from now on pixel DMA yields to other threads instead of spinning. */
-  Display_RtosInit();
+  if (Display_RtosInit() != WS169_STATUS_OK) return TX_NOT_DONE;
 
   /* Console/logging mutex. Log output is sent through USBX CDC-ACM. */
   USB_Logging_Init();
@@ -203,11 +203,18 @@ static void thread_monitor_entry(ULONG input)
 
     if (++seconds % 5U == 0U) {
       AppState st;
+      WS169_Diagnostics_t display_diagnostics;
       AppState_Get(&st);
+      Display_GetDiagnostics(&display_diagnostics);
       USB_Logging_Printf(LOG_LEVEL_INFO,
-                         "HEALTH ThreadX=OK USBX=%s TouchGFX_FPS=%u BLE=%d Heartbeat=%lu",
+                         "HEALTH ThreadX=OK USBX=%s TouchGFX_FPS=%u BLE=%d Display=%d "
+                         "DisplayFaults=%lu Heartbeat=%lu",
                          UsbCdcLog_IsActive() ? "ACTIVE" : "WAIT",
-                         (unsigned)st.fps, (int)st.ble_status,
+                          (unsigned)st.fps, (int)st.ble_status,
+                         (int)display_diagnostics.last_status,
+                         (unsigned long)(display_diagnostics.spi_error_count +
+                                         display_diagnostics.dma_error_count +
+                                         display_diagnostics.timeout_count),
                          (unsigned long)AppCore_Heartbeat());
     }
   }

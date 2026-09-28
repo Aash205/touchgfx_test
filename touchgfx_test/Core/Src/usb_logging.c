@@ -4,10 +4,11 @@
   * @file    usb_logging.c
   * @brief   Logging / console output.
   *
-  *          Primary sink: USBX CDC-ACM through the board's User USB connector.
-  *          Boot messages are queued before enumeration and drained after the host
-  *          opens the virtual COM port. LPUART remains configured for the legacy
-  *          command receiver, but logging no longer depends on ST-LINK VCP routing.
+  *          Mirrored sinks:
+  *          - LPUART1 for immediate board bring-up and command responses;
+  *          - USBX CDC-ACM through the board's User USB connector.
+  *          USB messages are queued before enumeration. UART transmission and
+  *          synchronization use bounded waits so logging cannot block forever.
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -23,6 +24,9 @@
 /* Private variables ---------------------------------------------------------*/
 extern UART_HandleTypeDef hlpuart1;
 
+#define LOG_UART_TIMEOUT_MS   100U
+#define LOG_MUTEX_TIMEOUT_MS  100U
+
 static TX_MUTEX log_mutex;
 static volatile uint8_t log_mutex_ready = 0;
 
@@ -31,6 +35,14 @@ static USB_LoggingTypeDef usb_logging = {
   .log_level = LOG_LEVEL_DEBUG,
   .log_count = 0
 };
+
+static ULONG log_timeout_ticks(void)
+{
+  ULONG ticks = (ULONG)(((uint64_t)LOG_MUTEX_TIMEOUT_MS *
+                         (uint64_t)TX_TIMER_TICKS_PER_SECOND + 999ULL) / 1000ULL);
+
+  return (ticks == 0U) ? 1U : ticks;
+}
 
 /**
  * @brief Initialize USB logging
@@ -49,7 +61,7 @@ int USB_Logging_Init(void)
 }
 
 /**
- * @brief Send log message via USB
+ * @brief Send a formatted log message to LPUART1 and USB CDC
  */
 int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
 {
@@ -91,25 +103,31 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
 }
 
 /**
- * @brief Send raw data via USB
+ * @brief Send raw data to LPUART1 and USB CDC
  */
 int USB_Logging_SendRaw(uint8_t *data, uint16_t size)
 {
+  HAL_StatusTypeDef uart_status;
+  unsigned queued;
+
   if (!data || size == 0) return -1;
 
   /* The mutex only exists once the kernel runs; before that there is a single context. */
   uint8_t locked = 0;
   if (log_mutex_ready && tx_thread_identify() != NULL) {
-    if (tx_mutex_get(&log_mutex, TX_WAIT_FOREVER) != TX_SUCCESS) return -1;
+    if (tx_mutex_get(&log_mutex, log_timeout_ticks()) != TX_SUCCESS) return -1;
     locked = 1;
   }
 
   /* Queue to USB even before enumeration so early BLE/RTOS diagnostics survive. */
-  unsigned queued = UsbCdcLog_Write(data, size);
+  queued = UsbCdcLog_Write(data, size);
+
+  /* LPUART1 is full duplex: interrupt-driven RX remains active during this bounded TX. */
+  uart_status = HAL_UART_Transmit(&hlpuart1, data, size, LOG_UART_TIMEOUT_MS);
 
   if (locked) tx_mutex_put(&log_mutex);
 
-  return (queued == size) ? (int)size : -1;
+  return ((queued == size) || (uart_status == HAL_OK)) ? (int)size : -1;
 }
 
 /**

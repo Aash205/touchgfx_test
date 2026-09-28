@@ -73,7 +73,8 @@ HAL_StatusTypeDef UART_CMD_StartListening(UART_CommandTypeDef *handler)
 int UART_CMD_Process(UART_CommandTypeDef *handler)
 {
   if (!handler->command_ready) return 1;
-  
+
+  USB_Logging_Printf(LOG_LEVEL_DEBUG, "LPUART1 command received: %s", handler->rx_buffer);
   UART_CMD_ParseCommand(handler, handler->rx_buffer);
   handler->rx_index = 0;
   memset(handler->rx_buffer, 0, sizeof(handler->rx_buffer));

@@ -33,6 +33,8 @@ using namespace touchgfx;
 
 void TouchGFXHAL::initialize()
 {
+    WS169_Status_t displayStatus;
+
     // Calling parent implementation of initialize().
     //
     // To overwrite the generated implementation, omit the call to the parent function
@@ -40,13 +42,16 @@ void TouchGFXHAL::initialize()
     // Please note, HAL::initialize() must be called to initialize the framework.
 
     // Bring up the ST7789V2 panel (SPI2 + GPIO are already configured by main()).
-    Display_Init(DISPLAY_DEFAULT_ROTATION);
+    displayStatus = Display_Init(DISPLAY_DEFAULT_ROTATION);
 
     TouchGFXGeneratedHAL::initialize();
 
     // Blank the framebuffer: widgets narrower than the panel leave the rest untouched.
     std::memset(getTFTFrameBuffer(), 0, DISPLAY_WIDTH * DISPLAY_HEIGHT * 2U);
-    Display_FillScreenDirect(DISPLAY_COLOR_BLACK);
+    if (displayStatus == WS169_STATUS_OK)
+    {
+        (void)Display_FillScreenDirect(DISPLAY_COLOR_BLACK);
+    }
 }
 
 /**
@@ -101,10 +106,13 @@ void TouchGFXHAL::flushFrameBuffer(const touchgfx::Rect& rect)
     TouchGFXGeneratedHAL::flushFrameBuffer(rect);
 
     // Push only the dirty rectangle to the panel over SPI (blocking).
-    Display_FlushRectRGB565(getTFTFrameBuffer(),
-                            (uint16_t)rect.x, (uint16_t)rect.y,
-                            (uint16_t)rect.width, (uint16_t)rect.height);
-    AppState_FrameFlushed();
+    if (Display_FlushRectRGB565(getTFTFrameBuffer(),
+                               (uint16_t)rect.x, (uint16_t)rect.y,
+                               (uint16_t)rect.width, (uint16_t)rect.height) ==
+        WS169_STATUS_OK)
+    {
+        AppState_FrameFlushed();
+    }
 }
 
 bool TouchGFXHAL::blockCopy(void* RESTRICT dest, const void* RESTRICT src, uint32_t numBytes)

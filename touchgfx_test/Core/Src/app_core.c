@@ -8,6 +8,7 @@
 #include "app_core.h"
 #include "uart_commands.h"
 #include "ble_app.h"
+#include "usb_logging.h"
 #include "tx_api.h"
 
 #define USER_BTN_PORT   GPIOC          /* Nucleo B1 (blue), active high */
@@ -22,11 +23,18 @@ static volatile uint32_t s_heartbeat;
 void AppCore_Init(UART_HandleTypeDef *console_uart)
 {
   GPIO_InitTypeDef gpio = {0};
+  HAL_StatusTypeDef uart_status;
 
   UART_CMD_Init(&s_console, console_uart);
   UART_CMD_RegisterLED(&s_console, GPIOC, GPIO_PIN_7);    /* LD1 */
   UART_CMD_RegisterLED(&s_console, GPIOB, GPIO_PIN_14);   /* LD3 */
-  UART_CMD_StartListening(&s_console);
+
+  uart_status = UART_CMD_StartListening(&s_console);
+  if (uart_status == HAL_OK) {
+    USB_Logging_Printf(LOG_LEVEL_INFO, "LPUART1 RX ready on PG8 at 115200 8N1");
+  } else {
+    USB_Logging_Printf(LOG_LEVEL_ERROR, "LPUART1 RX arm failed: %d", (int)uart_status);
+  }
 
   __HAL_RCC_GPIOC_CLK_ENABLE();
   gpio.Pin = USER_BTN_PIN;

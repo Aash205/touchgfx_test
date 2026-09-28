@@ -10,6 +10,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "app_tests.h"
 #include "unified.h"
+#include "WS169_driver_tests.h"
 #include "ble_app.h"
 #include "uart_commands.h"
 #include "usb_logging.h"
@@ -20,11 +21,41 @@
 
 TestStatusTypeDef Test_Display(void)
 {
+  WS169_TestReport_t report;
+  WS169_Diagnostics_t diagnostics;
+
+  WS169_DriverTests_Run(&report);
+  if (report.failed != 0U) {
+    FAIL("WS169 unit tests: %u/%u failed, mask=0x%08lx",
+         (unsigned)report.failed, (unsigned)report.executed,
+         (unsigned long)report.failure_mask);
+  }
+
   if (Display_GetWidth() != 280U || Display_GetHeight() != 240U) {
     FAIL("Display size %ux%u (expected 280x240)", Display_GetWidth(), Display_GetHeight());
   }
   if (Display_GetController() != DISPLAY_CONTROLLER_ST7789) FAIL("Display controller");
-  PASS("Display geometry");
+
+  Display_GetDiagnostics(&diagnostics);
+  if (!diagnostics.initialized || !diagnostics.rtos_ready) {
+    FAIL("WS169 state initialized=%u rtos=%u",
+         diagnostics.initialized ? 1U : 0U,
+         diagnostics.rtos_ready ? 1U : 0U);
+  }
+  if ((diagnostics.spi_error_count != 0U) ||
+      (diagnostics.dma_error_count != 0U) ||
+      (diagnostics.timeout_count != 0U)) {
+    FAIL("WS169 faults spi=%lu dma=%lu timeout=%lu last=%d hal=0x%08lx",
+         (unsigned long)diagnostics.spi_error_count,
+         (unsigned long)diagnostics.dma_error_count,
+         (unsigned long)diagnostics.timeout_count,
+         (int)diagnostics.last_status,
+         (unsigned long)diagnostics.last_hal_error);
+  }
+
+  USB_Logging_Printf(LOG_LEVEL_INFO, "WS169 unit tests: %u/%u passed",
+                     (unsigned)report.passed, (unsigned)report.executed);
+  PASS("Display driver and geometry");
 }
 
 TestStatusTypeDef Test_UART_Commands(void)
@@ -61,8 +92,12 @@ TestStatusTypeDef Test_LED_Control(void)
 TestStatusTypeDef Test_BLE_Status(void)
 {
   BLE_StatusTypeDef st = BLE_App_GetStatus();
-  if (st != BLE_APP_STATUS_ADVERTISING && st != BLE_APP_STATUS_CONNECTED) FAIL("BLE status = %d", (int)st);
-  PASS("BLE advertising/connected");
+  if ((st != BLE_APP_STATUS_INITIALIZED) &&
+      (st != BLE_APP_STATUS_ADVERTISING) &&
+      (st != BLE_APP_STATUS_CONNECTED)) {
+    FAIL("BLE status = %d", (int)st);
+  }
+  PASS("BLE ready/advertising/connected");
 }
 
 TestStatusTypeDef Test_USB_Logging(void)

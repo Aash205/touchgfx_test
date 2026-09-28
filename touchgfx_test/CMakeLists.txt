@@ -55,10 +55,12 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    Core/Src/unified.c          # ST7789V2 (Waveshare 1.69") display driver, SPI2 + DMA
+    App/Drivers/Waveshare169/Src/WS169_driver.c # ST7789V2 library, SPI2 + DMA + diagnostics
+    App/Tests/Src/WS169_driver_tests.c          # non-destructive on-target driver tests
+    Core/Src/unified.c          # compatibility adapter for existing display call sites
     Core/Src/ble_app.c          # BlueNRG-2 peripheral
     Core/Src/uart_commands.c    # LPUART1 command console
-    Core/Src/usb_logging.c      # log / console sink (LPUART1)
+    Core/Src/usb_logging.c      # USBX CDC-ACM diagnostics sink
     Core/Src/app_tests.c        # on-target smoke tests ("TEST" command)
     Core/Src/app_core.c         # shared AppState, LED/console owner, user button
     Core/Src/usb_cdc_log.c      # USB CDC log sink (inert until the USB device is enabled)
@@ -79,6 +81,8 @@ endif()
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    App/Drivers/Waveshare169/Inc
+    App/Tests/Inc
 )
 
 # Add project symbols (macros)
