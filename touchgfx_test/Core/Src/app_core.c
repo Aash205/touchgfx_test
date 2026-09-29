@@ -10,6 +10,7 @@
 #include "ble_app.h"
 #include "usb_logging.h"
 #include "tx_api.h"
+#include "app_tests.h"
 
 #define USER_BTN_PORT   GPIOC          /* Nucleo B1 (blue), active high */
 #define USER_BTN_PIN    GPIO_PIN_13
@@ -104,6 +105,11 @@ void AppState_Get(AppState *out)
   out->uptime_s = (uint32_t)(tx_time_get() / TX_TIMER_TICKS_PER_SECOND);
   out->heartbeat = s_heartbeat;
   out->fps = s_fps;
+  Test_GetSummary(&out->test_last_case,
+                  &out->test_last_status,
+                  &out->test_total,
+                  &out->test_passed,
+                  &out->test_failed);
 }
 
 void AppState_SetLed(uint8_t idx, uint8_t on)

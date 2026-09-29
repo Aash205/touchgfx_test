@@ -1,11 +1,11 @@
 /**
   ******************************************************************************
-  * @file    WS169_driver.c
+  * @file    waveshare_driver.c
   * @brief   Waveshare 1.69-inch ST7789V2 LCD driver.
   ******************************************************************************
   */
 
-#include "WS169_driver.h"
+#include "waveshare_driver.h"
 #include "tx_api.h"
 #include <stddef.h>
 

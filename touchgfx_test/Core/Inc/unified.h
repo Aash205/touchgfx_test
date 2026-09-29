@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-#include "WS169_driver.h"
+#include "waveshare_driver.h"
 #include <stdint.h>
 
 #define DISPLAY_WIDTH              WS169_LANDSCAPE_WIDTH

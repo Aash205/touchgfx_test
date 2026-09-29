@@ -1,0 +1,42 @@
+repos:
+  - repo: local
+    hooks:
+      - id: misra-format
+        name: clang-format (Allman, 4-space)
+        entry: scripts/format.sh fix
+        language: system
+        files: \.(c|h|cpp|hpp)$
+        # demo/ fixtures are deliberate violations for the self-test walkthrough
+        # (see README) -- never gate commits/CI on them. Run `./scripts/lint.sh
+        # demo` / `./scripts/format.sh check demo` directly to see them.
+        exclude: ^demo/
+      - id: misra-lint
+        name: MISRA lint (cppcheck MISRA C + clang-tidy best-effort C++)
+        entry: scripts/lint.sh
+        language: system
+        files: \.(c|h|cpp|hpp)$
+        exclude: ^demo/
+        # pre-commit parallelizes hook invocations across files by default
+        # (xargs -P, batched by CPU count) -- fine for clang-format (each
+        # file is independent) but breaks cppcheck's own cross-file
+        # whole-program analysis (unusedFunction, misra-c2012-2.5 on
+        # shared headers, ...): a function/macro only used from a
+        # DIFFERENT staged file looks unused when that file lands in a
+        # different parallel batch. require_serial forces one invocation
+        # with every matched file together, matching what lint.sh already
+        # assumes ("pre-commit's per-staged-file invocation" in its own
+        # comments means "all staged files in one call", not "one call
+        # per file").
+        require_serial: true
+        # Even with require_serial, pre-commit only passes STAGED files as
+        # args -- a commit touching one file but leaving another that
+        # cross-references it (a shared header's macro, an extern'd
+        # function) untouched still only shows cppcheck the staged one,
+        # producing the exact same false "unused" positives require_serial
+        # was meant to fix. lint.sh already has a zero-arg mode that scans
+        # the whole repo root (respecting misra/exclude-paths.txt) instead
+        # of just its argv -- pass_filenames: false makes pre-commit use
+        # that path unconditionally once `files`/`exclude` above decide the
+        # hook should run at all, trading a bit of commit-time speed for
+        # cross-TU correctness.
+        pass_filenames: false

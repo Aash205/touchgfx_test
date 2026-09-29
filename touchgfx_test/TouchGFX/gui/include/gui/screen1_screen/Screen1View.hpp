@@ -28,6 +28,7 @@ protected:
     DynText uptimeText;
     DynText heartbeatText;
     DynText fpsText;
+    DynText testText;
     SoftButton ledButton[APP_LED_COUNT];
 
     touchgfx::Callback<Screen1View, SoftButton&> ledClickedCallback;

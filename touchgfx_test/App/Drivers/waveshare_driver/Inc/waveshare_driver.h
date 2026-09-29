@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file    WS169_driver.h
+  * @file    waveshare_driver.h
   * @brief   Waveshare 1.69-inch ST7789V2 LCD driver interface.
   *
   * The driver owns no framebuffer. A caller such as TouchGFX supplies RGB565

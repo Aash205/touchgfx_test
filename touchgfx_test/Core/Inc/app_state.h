@@ -17,6 +17,13 @@ extern "C" {
 
 #define APP_LED_COUNT 2U   /* LED0 = LD1 (PC7), LED1 = LD3 (PB14) */
 
+typedef enum {
+  APP_TEST_IDLE = 0,
+  APP_TEST_PASS = 1,
+  APP_TEST_FAIL = 2,
+  APP_TEST_SKIP = 3
+} AppTestStatusTypeDef;
+
 /* Mirrors BLE_StatusTypeDef in ble_app.h (0 idle .. 6 error) */
 typedef struct {
   uint8_t  led[APP_LED_COUNT];  /* 1 = on (blinking counts as on), 0 = off */
@@ -24,6 +31,11 @@ typedef struct {
   uint32_t uptime_s;            /* seconds since boot */
   uint32_t heartbeat;           /* monitor heartbeat counter (5 s period) */
   uint16_t fps;                 /* display flushes in the last second */
+  uint8_t  test_last_case;      /* most recently executed case, 1..5 */
+  uint8_t  test_last_status;    /* AppTestStatusTypeDef */
+  uint16_t test_total;          /* cases in the most recent run */
+  uint16_t test_passed;
+  uint16_t test_failed;
 } AppState;
 
 /** Copy the current state (safe from any thread / the GUI). */

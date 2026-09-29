@@ -29,9 +29,14 @@ void Screen1View::setupScreen()
         add(*rows[i]);
     }
 
+    testText.setFont(Typography::DEFAULT);
+    testText.setColor(white);
+    testText.setPosition(16, 164, 248, 26);
+    add(testText);
+
     for (uint8_t i = 0; i < APP_LED_COUNT; i++)
     {
-        ledButton[i].setBoundsAndLayout(12 + i * 134, 176, 122, 52, Typography::DEFAULT);
+        ledButton[i].setBoundsAndLayout(12 + i * 134, 196, 122, 40, Typography::DEFAULT);
         ledButton[i].setLabelColor(white);
         ledButton[i].setClickedCallback(ledClickedCallback);
         add(ledButton[i]);
@@ -67,6 +72,19 @@ void Screen1View::updateState(const AppState& s)
 
     snprintf(line, sizeof(line), "FPS: %u", (unsigned)s.fps);
     fpsText.setText(line);
+
+    if (s.test_total == 0U)
+    {
+        testText.setText("Tests: not run (UART TEST)");
+    }
+    else
+    {
+        snprintf(line, sizeof(line), "Tests %u/%u L%u %s",
+                 (unsigned)s.test_passed, (unsigned)s.test_total,
+                 (unsigned)s.test_last_case,
+                 (s.test_last_status == APP_TEST_PASS) ? "PASS" : "FAIL");
+        testText.setText(line);
+    }
 
     static const char* const onLabels[APP_LED_COUNT] = { "LD1 ON", "LD3 ON" };
     static const char* const offLabels[APP_LED_COUNT] = { "LD1 OFF", "LD3 OFF" };

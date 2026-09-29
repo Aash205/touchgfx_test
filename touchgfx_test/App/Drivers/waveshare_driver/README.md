@@ -4,7 +4,7 @@ Application-owned driver for the 240x280 Waveshare IPS TFT module with an
 ST7789V2 controller. The current application uses it in 280x240 landscape mode.
 
 The initialization values and 20-pixel controller-RAM offset are derived from
-the known-good `Waveshare169_driver` implementation. This version adds:
+the known-good `waveshare_driver` implementation. This version adds:
 
 - checked HAL return values;
 - explicit driver status and diagnostic counters;
