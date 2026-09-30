@@ -39,8 +39,10 @@
 */syscalls.c
 */sysmem.c
 */system_stm32*.c
-# CubeMX and BSP generated Core files. Their USER CODE blocks are empty in
-# this checkout; application logic lives in separately maintained modules.
+# CubeMX and BSP generated Core files, excluded whole. Their USER CODE blocks
+# hold only init wiring; application logic lives in separately maintained modules.
+# Linting just the USER CODE regions is planned for when those blocks are reduced
+# to single calls (restructure spec, step 11).
 */Core/Src/main.c
 */Core/Src/dma2d.c
 */Core/Src/custom_bus.c
@@ -51,9 +53,7 @@
 # CubeMX/CubeIDE skeleton files that are near-100% generated (interrupt
 # vector stubs, MSP init, HAL timebase override) -- USER CODE markers exist
 # in these too, but in practice almost nothing is ever added there.
-# main.c and freertos.c are deliberately NOT listed here: real init/task
-# logic lives in their USER CODE blocks, so MISRA findings in hand-written
-# code there should stay visible.
+# (main.c is excluded above for the same reason as dma2d.c and custom_bus.c.)
 */stm32*_it.c
 */*_hal_msp.c
 */*_timebase_tim.c

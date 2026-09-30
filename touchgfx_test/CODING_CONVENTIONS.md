@@ -34,10 +34,11 @@ them exactly as CubeMX/CubeIDE produced them:
 - `stm32*_hal_conf.h`, `FreeRTOSConfig.h` — CubeMX config headers.
 - `Core/Startup/*` — reset handler, vector table, linker scripts.
 
-**Exception:** `main.c` (and `freertos.c` if present) — real init/task logic lives in their
-`USER CODE` blocks, so they stay linted. Only touch code inside `USER CODE BEGIN/END` markers;
-never edit CubeMX-owned sections outside them, or the next `.ioc` regeneration wipes your
-changes.
+**`main.c` and the other CubeMX-owned files:** only touch code inside `USER CODE BEGIN/END`
+markers, and keep it to single calls into `App/`; never edit CubeMX-owned sections outside
+them, or the next `.ioc` regeneration wipes your changes. These files are currently excluded
+from lint whole (see `misra/exclude-paths.txt`); linting just their USER CODE regions is
+planned.
 
 ## MISRA
 
@@ -50,7 +51,8 @@ changes.
 
 ```
 scripts/format.sh check
-scripts/lint.sh
+scripts/lint.sh          # generates compile_commands.json on first run (scripts/gen_compile_db.sh)
+scripts/host-test.sh
 ```
 
 Both also run via pre-commit (`scripts/setup.sh` to install).
