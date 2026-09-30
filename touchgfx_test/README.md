@@ -12,10 +12,10 @@ Firmware for an STM32L496ZG (Nucleo-144) running ThreadX with a TouchGFX UI on a
 |---|---|
 | Display | ST7789V2 240x280 used in landscape 280x240, RGB565, SPI2 (`App/waveshare_driver/`) |
 | GUI | TouchGFX 4.26, "Live Status" screen (`Screen1`, built in code), DMA2D (Chrom-ART) blits |
-| RTOS | ThreadX: TouchGFX (prio 5), BLE (10), UART command console (11), Monitor heartbeat (12); 20 ms VSYNC timer |
-| BLE | BlueNRG-2 peripheral on SPI1 (5 MHz), advertises `Nucleo-BLE-Demo`, re-advertises on disconnect |
+| RTOS | ThreadX: TouchGFX (prio 5), BLE (10), UART command console (11), Monitor heartbeat (12), USB CDC log drain (14); 20 ms VSYNC timer |
+| BLE | BlueNRG-2 peripheral on SPI1 (prescaler 64), advertises `Nucleo-BLE-Demo`, re-advertises on disconnect |
 | Console | LPUART1 115200 8N1: LED control, status, BLE status, HELP |
-| Logging | `USB_Logging_*` mirrors to LPUART1 and a USB CDC sink (inert until the USB device controller is generated) |
+| Logging | `USB_Logging_*` mirrors to LPUART1 and a USBX CDC-ACM sink (a ring buffer drained by a thread; boot logs queue until a host opens the port) |
 | Shared state | `AppState` (`Core/Inc/app_state.h`); all LED sources (UART, BLE, B1 button, GUI) go through `AppState_SetLed()` in `Core/Src/app_core.c` |
 
 ## Hardware and wiring
@@ -23,9 +23,9 @@ Firmware for an STM32L496ZG (Nucleo-144) running ThreadX with a TouchGFX UI on a
 | Signal | Pin | Notes |
 |---|---|---|
 | LCD SCK / MOSI | PB10 / PB15 | SPI2, TX only |
-| LCD CS / DC / RES | PG12 / PA8 / PA9 | GPIO out (`DISP_CS/DC/RES`); GPIOG needs VddIO2 (enabled in `MX_GPIO_Init`) |
-| BlueNRG-2 | SPI1 PA1/PA6/PA7, CS PC2, RST PF13, IRQ PE8 | SPI1 at 5 MHz |
-| Console | LPUART1 PC0 (RX) / PC1 (TX), 115200 8N1 | USB-UART adapter: adapter RX to PC1, adapter TX to PC0, GND |
+| LCD CS / DC / RES | PG12 / PC2 / PA9 | GPIO out (`DISP_CS/DC/RES`); GPIOG needs VddIO2 (enabled in `MX_GPIO_Init`) |
+| BlueNRG-2 | SPI1 SCK PA5 / MISO PA6 / MOSI PA7, CS PC0, RST PF13, IRQ PA3 (EXTI3) | SPI1 prescaler 64 (`custom_bus.c`) |
+| Console | LPUART1 PG8 (RX) / PC1 (TX), 115200 8N1 | USB-UART adapter: adapter RX to PC1, adapter TX to PG8, GND |
 | LEDs | LD1 = PC7, LD3 = PB14 | `LED0` = LD1, `LED1` = LD3 |
 | User button | B1 = PC13 | toggles LD1 |
 
@@ -88,6 +88,7 @@ Threads (ThreadX, 100 Hz tick, lower number = higher priority):
  BLE thread (10)      BLE_App_Init / advertise, then hci_user_evt_proc() every 10 ms
  UART cmd thread (11) UART_CMD_Process + LED blink service every 20 ms
  Monitor thread (12)  heartbeat log every 5 s
+ USB CDC log drain (14) UsbCdcLog: drains the log ring buffer to the host every 50 ms
 ```
 
 Data path to the panel:
@@ -102,16 +103,17 @@ DMA1 Ch5 (SPI2_TX, halfword) -- 40 MHz --> ST7789V2 (PB10 SCK, PB15 MOSI)
 ```
 
 Clocks: MSI 4 MHz -> PLL (M=1, N=40, R=2) = 80 MHz SYSCLK/HCLK/PCLK1/PCLK2, flash latency 4.
-ThreadX `SYSTEM_CLOCK` = 80 MHz. SPI2 = 40 MHz, SPI1 (BLE) = 5 MHz.
+ThreadX `SYSTEM_CLOCK` = 80 MHz. SPI2 = 40 MHz (prescaler 2), SPI1 (BLE) prescaler 64.
 
 Interrupts:
 
 | IRQ | Priority | Purpose |
 |---|---|---|
-| EXTI9_5 (PE8) | 0 | BlueNRG-2 data ready |
+| EXTI3 (PA3) | 0 | BlueNRG-2 data ready |
 | DMA1_Channel5 | 5 | display pixel DMA complete |
-| LPUART1 | 6 | console RX (byte at a time) |
+| LPUART1 | 0 | console RX (byte at a time) |
 | DMA2D | 9 | Chrom-ART complete |
+| OTG_FS | 7 | USB device |
 | TIM1 update | 15 | HAL tick |
 
 Peripherals: SPI2 (LCD), SPI1 (BlueNRG-2), LPUART1 (console), DMA1, DMA2D, CRC, I2C1 (unused).
@@ -149,7 +151,7 @@ regeneration):
   generated GUI backgrounds were resized by hand.
 - `STM32L496XX_FLASH.ld`: `TouchGFX_Framebuffer` NOLOAD section (the build uses
   `linker/STM32L496XX_FLASH_app.ld`).
-- `Core/Src/custom_bus.c`: SPI1 8-bit, prescaler 16.
+- `Core/Src/custom_bus.c`: SPI1 8-bit, prescaler 64.
 - `Core/Src/tx_initialize_low_level.S`: `SYSTEM_CLOCK` 80 MHz.
 - `main.c`, `stm32l4xx_hal_msp.c`, `stm32l4xx_it.c`: clock, DMA init, GPIOG VddIO2, DMA/LPUART/EXTI/DMA2D handlers.
 
@@ -160,8 +162,8 @@ regeneration):
 `USB_OTG_FS` once (Connectivity, Device Only). Verify:
 
 - Clock: MSI 4 MHz, PLL to 80 MHz SYSCLK; USB clock source HSI48.
-- Pins: PB10/PB15 SPI2 TX-only, PG12/PA8/PA9 outputs (`DISP_CS/DC/RES`), PC7/PB14 LD1/LD3, PA11/PA12 USB.
-- DMA: SPI2_TX on DMA1 Ch5, halfword. DMA2D enabled. NVIC priorities: DMA1 Ch5 = 5, LPUART1 = 6, DMA2D = 9, OTG_FS = 7.
+- Pins: PB10/PB15 SPI2 TX-only, PG12/PC2/PA9 outputs (`DISP_CS/DC/RES`), PC7/PB14 LD1/LD3, PA11/PA12 USB.
+- DMA: SPI2_TX on DMA1 Ch5, halfword. DMA2D enabled. NVIC priorities: DMA1 Ch5 = 5, LPUART1 = 0, EXTI3 = 0, DMA2D = 9, OTG_FS = 7.
 - TouchGFX pack: display 280 x 240. USBX pack: Device, CDC ACM.
 - Project Manager: toolchain **CMake**, then **Generate Code**.
 
@@ -173,7 +175,7 @@ then **Generate Code**. `Screen1` is built in code and is not touched by Designe
 | Item | Expected / action |
 |---|---|
 | `cmake/stm32cubemx/CMakeLists.txt` | Lists `dma2d.c`, `stm32l4xx_hal_dma2d.c`, and the USB/PCD sources. The root `CMakeLists.txt` adds the dma2d files only if missing; on "multiple definition", remove the root entry. |
-| `stm32l4xx_it.c` | CubeMX adds strong DMA1_Ch5 / DMA2D / LPUART1 / OTG_FS handlers; the hand-written ones are `__weak` inside `USER CODE 1`, so they lose. `EXTI9_5_IRQHandler` must remain (BlueNRG). |
+| `stm32l4xx_it.c` | CubeMX adds strong DMA1_Ch5 / DMA2D / LPUART1 / OTG_FS handlers; the hand-written ones are `__weak` inside `USER CODE 1`, so they lose. `EXTI3_IRQHandler` must remain (BlueNRG). |
 | `Core/Src/tx_initialize_low_level.S` | `SYSTEM_CLOCK` must be `80000000`; if it reverted to 4000000, fix it. |
 | `stm32l4xx_hal_conf.h` | `HAL_PCD_MODULE_ENABLED` and `HAL_DMA2D_MODULE_ENABLED` must be on. |
 | USBX sources | `ux_dcd_stm32_*` and HAL PCD must be in the build; if the pack did not add them, add the USBX STM32 device-controller sources. |
@@ -192,4 +194,4 @@ then **Generate Code**. `Screen1` is built in code and is not touched by Designe
 - BLE has not been tried against a real BlueNRG-2.
 - UI asset and file names still say `240x240` (they are 280x240 now).
 - No touch controller is wired (`STM32TouchController.cpp` is a stub), so the on-screen LED buttons only show state.
-- USB CDC logging needs the USB device controller generated; until then the sink is inert.
+- USB CDC logging (USBX device, `usb_cdc_log.c`) has not been verified on hardware.
