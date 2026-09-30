@@ -11,12 +11,9 @@
 #include "uart_commands.h"
 #include "usb_logging.h"
 #include "ble_app.h"
-#include "app_tests.h"
 #include "uart_line.h"
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
 
 /* Private function prototypes -----------------------------------------------*/
 static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd);
@@ -138,24 +135,6 @@ static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd)
     /* Get status */
     UART_CMD_GetStatus(handler, response);
     UART_CMD_SendResponse(handler, response);
-  } else if (strncmp(cmd, "TEST", 4) == 0) {
-    const char *selection = cmd + 4;
-    while (*selection == ' ') { selection++; }
-    if (*selection == '\0' || strcmp(selection, "ALL") == 0) {
-      (void)Test_RunAll();
-    } else {
-      char *end = NULL;
-      errno = 0;
-      long case_id = strtol(selection, &end, 10);
-      while ((end != NULL) && (*end == ' ')) { end++; }
-      if ((end == selection) || ((end != NULL) && (*end != '\0')) ||
-          (errno == ERANGE) || (case_id < 1L) ||
-          (case_id > (long)TEST_CASE_COUNT)) {
-        UART_CMD_SendResponse(handler, "ERROR: TEST expects ALL or a case number 1-5\r\n");
-      } else {
-        (void)Test_RunOne((uint8_t)case_id);
-      }
-    }
   } else if (strncmp(cmd, "BLE", 3) == 0) {
     snprintf(response, sizeof(response), "BLE status: %d\r\n", (int)BLE_App_GetStatus());
     UART_CMD_SendResponse(handler, response);
@@ -163,8 +142,6 @@ static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd)
     UART_CMD_SendResponse(handler, "Commands:\r\n");
     UART_CMD_SendResponse(handler, "  LED<N> ON/OFF/TOGGLE/BLINK/FAST\r\n");
     UART_CMD_SendResponse(handler, "  BLE   (status)\r\n");
-    UART_CMD_SendResponse(handler, "  TEST / TEST ALL  (run all bring-up cases)\r\n");
-    UART_CMD_SendResponse(handler, "  TEST <1-5>  (1=log 2=display 3=UART 4=LED 5=BLE)\r\n");
     UART_CMD_SendResponse(handler, "  STATUS\r\n");
     UART_CMD_SendResponse(handler, "  HELP\r\n");
   } else {

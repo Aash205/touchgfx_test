@@ -1,39 +1,32 @@
 # Lint baseline: finding counts per rule from scripts/lint_counts.sh
-# Recorded after step 0 (real compile database, inline suppressions). Compare, do not edit by hand.
-     45 misra-c2012-17.7
+# Recorded after step 1 (on-target tests removed). Compare, do not edit by hand.
      40 misra-c2012-21.6
-     29 misra-c2012-15.5
+     25 misra-c2012-17.7
+     14 misra-c2012-15.5
      11 misra-c2012-8.9
       9 unusedFunction
       9 misra-c2012-8.7
       8 variableScope
       8 misra-c2012-14.4
       7 misra-c2012-15.6
-      7 misra-c2012-12.1
       7 misra-c2012-11.4
-      6 staticFunction
       5 misra-c2012-7.4
-      5 misra-c2012-10.4
+      4 misra-c2012-12.1
       4 misra-c2012-11.8
+      4 misra-c2012-10.4
       3 misra-c2012-17.1
       3 misra-c2012-15.7
       3 misra-c2012-11.9
       2 unreadVariable
       2 misra-c2012-8.5
       2 misra-c2012-7.3
-      2 misra-c2012-2.4
-      2 misra-c2012-2.3
       2 misra-c2012-21.1
       2 misra-c2012-10.3
-      1 unmatchedSuppression
-      1 misra-c2012-22.9
-      1 misra-c2012-22.10
-      1 misra-c2012-18.4
+      1 staticFunction
       1 misra-c2012-13.5
-      1 misra-c2012-13.3
       1 misra-c2012-12.3
       1 misra-c2012-11.6
       1 misra-c2012-11.5
       1 misra-c2012-10.8
       1 constParameterPointer
-234 total
+181 total

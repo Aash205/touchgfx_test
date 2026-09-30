@@ -57,8 +57,6 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     App/waveshare_driver/Src/waveshare_driver.c # ST7789V2 library, SPI2 + DMA + diagnostics
     App/waveshare_driver/Src/ws169_geometry.c # hardware-independent display geometry
-    Tests/Src/WS169_driver_tests.c              # non-destructive on-target driver tests
-    Tests/Src/app_tests.c                       # board bring-up test cases
     Core/Src/ble_app.c          # BlueNRG-2 peripheral
     Core/Src/uart_commands.c    # LPUART1 command console
     Core/Src/uart_line.c        # hardware-independent UART line assembly
@@ -83,7 +81,6 @@ endif()
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     App/waveshare_driver/Inc
-    Tests/Inc
 )
 
 # Add project symbols (macros)

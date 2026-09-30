@@ -30,11 +30,6 @@ staticFunction:*waveshare_driver.c
 constParameterPointer:*waveshare_driver.c
 duplicateCondition:*waveshare_driver.c
 
-# Selected-file lint lacks cross-translation-unit references to the public test
-# entry point; the application test dispatcher calls it.
-unusedFunction:*WS169_driver_tests.c
-misra-c2012-8.7:*WS169_driver_tests.c
-
 # Configuration/vendor headers reached through includes are not lint targets.
 *:*custom_conf.h
 *:*custom_errno.h
