@@ -150,6 +150,16 @@ if [ "${1:-}" = "--cubeide" ]; then
     shift
 fi
 
+# A missing compile database makes cppcheck blind to every project include path, which
+# floods the report with false 8.4 / 17.3 findings. Generate it, or fail as a tool error.
+if [ ! -f "$REPO_ROOT/compile_commands.json" ]; then
+    echo "compile_commands.json missing -- generating it (scripts/gen_compile_db.sh)..." >&2
+    if ! bash "$SCRIPT_DIR/gen_compile_db.sh" >&2; then
+        echo "ERROR: could not generate compile_commands.json; lint results would be unreliable." >&2
+        exit 2
+    fi
+fi
+
 if [ "$#" -eq 0 ]; then
     # demo/ holds deliberate violations for the self-test walkthrough
     # (README: `./scripts/lint.sh demo`) -- excluded here, not via
