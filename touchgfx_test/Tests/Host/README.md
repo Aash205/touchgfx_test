@@ -8,9 +8,7 @@ Configure and build with the native host compiler, then run the case-by-case
 report:
 
 ```sh
-cmake --preset HostTests
-cmake --build --preset HostTests
-ctest --preset HostTests --verbose
+scripts/host-test.sh
 ```
 
 The test executable returns a nonzero exit code if any case fails. The suite

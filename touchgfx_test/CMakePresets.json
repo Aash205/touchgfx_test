@@ -23,14 +23,6 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
-        },
-        {
-            "name": "HostTests",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/HostTests",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
         }
     ],
     "buildPresets": [
@@ -41,17 +33,6 @@
         {
             "name": "Release",
             "configurePreset": "Release"
-        },
-        {
-            "name": "HostTests",
-            "configurePreset": "HostTests"
-        }
-    ],
-    "testPresets": [
-        {
-            "name": "HostTests",
-            "configurePreset": "HostTests",
-            "output": {"outputOnFailure": true}
         }
     ]
 }

@@ -8,6 +8,7 @@
 - Build Debug: `cmake --preset Debug && cmake --build --preset Debug`
 - Build Release: `cmake --preset Release && cmake --build --preset Release`
 - Setup environment: `scripts/setup.sh`
+- Refresh the lint compile database: `scripts/gen_compile_db.sh` (run `scripts/lint.sh` afterwards)
 - Refresh Language Server database: `scripts/gen_compile_commands.sh <project-dir>`
 
 ## Strict Coding & File Rules
@@ -16,6 +17,6 @@
 - CubeMX Rules: Only write code inside designated `USER CODE` blocks. 
 - Validation: Run `scripts/format.sh fix` and `scripts/lint.sh` before staging changes.
 
-## On-Target Testing
-- No host unit-tests exist.
-- Testing method: Flash target, open LPUART1 console (`115200 8N1`), and run the `TEST` command to trigger smoke tests.
+## Testing
+- Unit tests run on the host only (no board): `scripts/host-test.sh`.
+- There are no on-device tests. Code that cannot be separated from hardware is not tested.
