@@ -6,6 +6,11 @@ enable_testing()
 # Same source list as the firmware build, compiled with the native compiler.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../App/logic ${CMAKE_BINARY_DIR}/app_logic)
 
+# The product logic is held to the same warning bar as the tests.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(app_logic PRIVATE -Wall -Wextra -Werror)
+endif()
+
 add_library(unity STATIC vendor/unity/unity.c)
 target_include_directories(unity PUBLIC vendor/unity)
 
