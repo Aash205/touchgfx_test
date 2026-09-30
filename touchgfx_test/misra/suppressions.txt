@@ -4,6 +4,9 @@
 #
 # Example:
 # misra-c2012-15.1:src/legacy_bridge.c:42
+#
+# Prefer an inline "/* cppcheck-suppress [id] -- reason */" comment above the flagged line
+# over an entry here: line-number entries break on every edit.
 
 # Waveshare driver: STM32 GPIO port macros are integer-address-to-pointer
 # casts, HAL SPI takes mutable buffers even for read-only transmit data, and
@@ -36,26 +39,3 @@ misra-c2012-8.7:*WS169_driver_tests.c
 *:*custom_conf.h
 *:*custom_errno.h
 *:*tx_user.h
-
-# BlueNRG callback dispatch must decode opaque packet buffers into the
-# middleware's event types, and its API models these UUID containers as unions.
-misra-c2012-11.5:*ble_app.c:355
-misra-c2012-11.3:*ble_app.c:358
-misra-c2012-11.3:*ble_app.c:362
-misra-c2012-11.3:*ble_app.c:375
-misra-c2012-19.2:*ble_app.c:250
-misra-c2012-19.2:*ble_app.c:251
-
-# The send routine is a declared public API placeholder; these HCI/ACI
-# callbacks override weak definitions in the excluded BlueNRG middleware.
-unusedFunction:*ble_app.c:224
-misra-c2012-8.7:*ble_app.c:224
-unusedFunction:*ble_app.c:404
-misra-c2012-8.7:*ble_app.c:404
-unusedFunction:*ble_app.c:420
-misra-c2012-8.7:*ble_app.c:420
-unusedFunction:*ble_app.c:433
-misra-c2012-8.7:*ble_app.c:433
-
-# BLE_App_StopAdvertising is declared as a public module API in ble_app.h.
-staticFunction:*ble_app.c:162

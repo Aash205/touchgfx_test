@@ -159,6 +159,7 @@ BLE_StatusTypeDef BLE_App_StartAdvertising(const char *device_name)
 /**
  * @brief Stop BLE advertising
  */
+/* cppcheck-suppress [staticFunction] -- public module API declared in ble_app.h */
 BLE_StatusTypeDef BLE_App_StopAdvertising(void)
 {
   BLE_StatusTypeDef result = BLE_APP_STATUS_INITIALIZED;
@@ -221,6 +222,7 @@ void BLE_App_Process(void)
 /**
  * @brief Send data over BLE (no application GATT service yet: not connected -> -1)
  */
+/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- public API placeholder declared in ble_app.h */
 int BLE_App_SendData(uint8_t *data, uint16_t size)
 {
   int result = -1;
@@ -247,7 +249,9 @@ static tBleStatus ble_add_demo_service(void)
   static const uint8_t uuid_service[16] = UUID128(0x01);
   static const uint8_t uuid_led[16] = UUID128(0x02);
   static const uint8_t uuid_status[16] = UUID128(0x03);
+  /* cppcheck-suppress [misra-c2012-19.2] -- BlueNRG API models the UUID container as a union */
   Service_UUID_t svc;
+  /* cppcheck-suppress [misra-c2012-19.2] -- BlueNRG API models the UUID container as a union */
   Char_UUID_t chr;
   tBleStatus ret;
   uint8_t mask = led_mask_get();
@@ -352,13 +356,16 @@ static void ble_user_notify(void *pData)
 {
   if (pData != NULL)
   {
+    /* cppcheck-suppress [misra-c2012-11.5] -- opaque HCI packet buffer is decoded into the middleware type */
     hci_spi_pckt *hci_pckt = (hci_spi_pckt *)pData;
     if (hci_pckt->type == (uint8_t)HCI_EVENT_PKT)
     {
+      /* cppcheck-suppress [misra-c2012-11.3] -- opaque HCI packet buffer is decoded into the middleware type */
       hci_event_pckt *event_pckt = (hci_event_pckt *)hci_pckt->data;
 
       if (event_pckt->evt == (uint8_t)EVT_LE_META_EVENT)
       {
+        /* cppcheck-suppress [misra-c2012-11.3] -- opaque HCI packet buffer is decoded into the middleware type */
         evt_le_meta_event *meta = (evt_le_meta_event *)event_pckt->data;
         uint32_t count = sizeof(hci_le_meta_events_table) / sizeof(hci_le_meta_events_table[0]);
         for (uint32_t i = 0U; i < count; i++)
@@ -372,6 +379,7 @@ static void ble_user_notify(void *pData)
       }
       else if (event_pckt->evt == (uint8_t)EVT_VENDOR)
       {
+        /* cppcheck-suppress [misra-c2012-11.3] -- opaque HCI packet buffer is decoded into the middleware type */
         evt_blue_aci *blue = (evt_blue_aci *)event_pckt->data;
         uint32_t count = sizeof(hci_vendor_specific_events_table) /
                          sizeof(hci_vendor_specific_events_table[0]);
@@ -401,6 +409,7 @@ static void ble_user_notify(void *pData)
 }
 
 /* HCI event callbacks (weak in the middleware) ------------------------------*/
+/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- weak-symbol override called from the excluded BlueNRG middleware */
 void hci_le_connection_complete_event(uint8_t Status, uint16_t Connection_Handle, uint8_t Role,
                                       uint8_t Peer_Address_Type, uint8_t Peer_Address[6],
                                       uint16_t Conn_Interval, uint16_t Conn_Latency,
@@ -417,6 +426,7 @@ void hci_le_connection_complete_event(uint8_t Status, uint16_t Connection_Handle
   }
 }
 
+/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- weak-symbol override called from the excluded BlueNRG middleware */
 void hci_disconnection_complete_event(uint8_t Status, uint16_t Connection_Handle, uint8_t Reason)
 {
   (void)Connection_Handle;
@@ -430,6 +440,7 @@ void hci_disconnection_complete_event(uint8_t Status, uint16_t Connection_Handle
 }
 
 /* A client wrote a characteristic. Attr_Handle is the value handle (= char handle + 1). */
+/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- weak-symbol override called from the excluded BlueNRG middleware */
 void aci_gatt_attribute_modified_event(uint16_t Connection_Handle, uint16_t Attr_Handle,
                                        uint16_t Offset, uint16_t Attr_Data_Length, uint8_t Attr_Data[])
 {
