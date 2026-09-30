@@ -105,8 +105,6 @@ void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_S
  * @param handler: UART command handler
  * @param status_str: Output status string
  */
-void UART_CMD_GetStatus(UART_CommandTypeDef *handler, char *status_str);
-
 #ifdef __cplusplus
 }
 #endif

@@ -4,7 +4,7 @@
 
 | File | Role |
 |---|---|
-| `Core/Src/unified.c`, `Core/Inc/unified.h` | ST7789V2 driver, Waveshare 1.69" 280x240; pin macros `DISP_*` in `main.h`; `DISPLAY_SPI_PRESCALER` |
+| `App/waveshare_driver/Src/waveshare_driver.c`, `App/waveshare_driver/Inc/waveshare_driver.h` | ST7789V2 driver and board SPI2/pin setup; pin macros `DISP_*` in `Core/Inc/main.h` |
 | `TouchGFX/target/TouchGFXHAL.cpp` | inits panel, flushes dirty rows, `touchgfxSignalVSync()` |
 | `Core/Src/app_threadx.c` | VSYNC timer, threads, UART RX callbacks |
 | `Core/Src/ble_app.c` | BlueNRG-2 init/advertising/event dispatch |
@@ -15,11 +15,11 @@
 
 ## Build
 
-Root `CMakeLists.txt` `target_sources` lists the user sources (unified, ble_app, uart_commands, usb_logging, app_tests, dma2d, HAL dma2d). Build: `cmake --preset Debug && cmake --build --preset Debug`.
+Root `CMakeLists.txt` `target_sources` lists the application sources. Build: `cmake --preset Debug && cmake --build --preset Debug`.
 
 ## Changing the display pins/speed
 
-Edit `DISP_CS/DC/RES_*` in `Core/Inc/main.h` and the GPIO init in `MX_GPIO_Init`; SPI2 pins are in `stm32l4xx_hal_msp.c`. If pixels are corrupt, use `SPI_BAUDRATEPRESCALER_4` in `unified.h`.
+Edit `DISP_CS/DC/RES_*` in `Core/Inc/main.h` and the GPIO init in `MX_GPIO_Init`; SPI2 pins are in `stm32l4xx_hal_msp.c`. To lower SPI speed, adjust the prescaler in `MX_SPI2_Init()` in `Core/Src/main.c`.
 
 ## Logging / console
 
@@ -45,7 +45,7 @@ Not run on hardware. 40 MHz SPI, the 4.22 DMA2D code on the 4.26 framework, and 
 
 Hand edits are arranged so regeneration is safe:
 
-- App-owned files (never regenerated): `Core/Src/{unified,ble_app,uart_commands,usb_logging,usb_cdc_log,app_tests,app_bsp}.c`, `linker/STM32L496XX_FLASH_app.ld` (used via root `CMakeLists.txt`), `TouchGFX/target/TouchGFXHAL.cpp`.
+- App-owned files (never regenerated): `App/waveshare_driver/**`, `Core/Src/{ble_app,uart_commands,usb_logging,usb_cdc_log,app_tests,app_bsp}.c`, `linker/STM32L496XX_FLASH_app.ld` (used via root `CMakeLists.txt`), `TouchGFX/target/TouchGFXHAL.cpp`.
 - Interrupt handlers for DMA1_Ch5 / DMA2D / LPUART1 in `stm32l4xx_it.c` are `__weak`; CubeMX generates the strong ones. `EXTI9_5_IRQHandler` stays (not in the .ioc: BlueNRG pack owns it).
 - `dma2d.c` / `stm32l4xx_hal_dma2d.c` are added by the root CMake only if CubeMX's list lacks them.
 - USB: the `.ioc` has USB_OTG_FS (device only, PA11/PA12, HSI48, no VBUS sensing so PA9 stays LCD RES). Pool sizes are overridden in USER CODE blocks (`app_azure_rtos_config.h`, `app_usbx_device.h`). Log sink hooks sit in the USER CODE blocks of `ux_device_cdc_acm.c`.

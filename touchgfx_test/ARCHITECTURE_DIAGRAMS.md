@@ -7,7 +7,7 @@
                                              │
  TouchGFX thread (5) ◄── vsync queue ────────┘
    render → TouchGFXHAL::flushFrameBuffer(rect)
-        → Display_FlushRectRGB565()  (full-width dirty rows)
+        → WS169_FlushRectRGB565()  (full-width dirty rows)
         → SPI2 16-bit DMA, thread sleeps on semaphore until DMA done
 
  BLE thread (10)      BLE_App_Init / advertise, then hci_user_evt_proc() every 10 ms
@@ -21,7 +21,7 @@
 TouchGFX (LCD16bpp, framebuffer 280x240x2 B in RAM, section TouchGFX_Framebuffer)
    │  blits/fills via DMA2D (STM32DMA.cpp)
    ▼
-Display_FlushRectRGB565 ── window set (8-bit SPI frames, CS/DC on PG12/PA8)
+WS169_FlushRectRGB565 ── window set (8-bit SPI frames, CS/DC on PG12/PC2)
    ▼  switch SPI2 to 16-bit frames (MSB first = ST7789 byte order, no swap)
 DMA1 Ch5 (SPI2_TX, halfword) ── 40 MHz ──► ST7789V2 (PB10 SCK, PB15 MOSI)
 ```

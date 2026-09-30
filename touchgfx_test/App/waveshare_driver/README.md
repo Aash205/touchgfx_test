@@ -19,9 +19,9 @@ and COLMOD `0x55`. The standalone reference uses MADCTL `0x70` and COLMOD
 `0x05`; those values were not copied blindly because they change scan-direction
 and interface-format bits.
 
-`Core/Src/unified.c` is a compatibility adapter. New display-specific code
-should call this library directly. CubeMX-generated files do not own this
-folder and will not overwrite it.
+The driver contains the board's SPI2 and display-pin setup as well as the
+panel operations. CubeMX-generated files do not own this folder and will not
+overwrite it.
 
 Non-destructive geometry and boundary tests live under `App/Tests`. They are
 included in the existing `TEST` console command and do not access SPI or alter

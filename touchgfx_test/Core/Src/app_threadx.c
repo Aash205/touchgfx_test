@@ -14,7 +14,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "main.h"
-#include "unified.h"
+#include "waveshare_driver.h"
 #include "ble_app.h"
 #include "app_core.h"
 #include "usb_logging.h"
@@ -87,7 +87,7 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   (void)memory_ptr;
 
   /* Display: from now on pixel DMA yields to other threads instead of spinning. */
-  if (Display_RtosInit() != WS169_STATUS_OK) return TX_NOT_DONE;
+  if (WS169_RtosInit() != WS169_STATUS_OK) return TX_NOT_DONE;
 
   /* Console/logging mutex. Log output is sent through USBX CDC-ACM. */
   USB_Logging_Init();
@@ -205,7 +205,7 @@ static void thread_monitor_entry(ULONG input)
       AppState st;
       WS169_Diagnostics_t display_diagnostics;
       AppState_Get(&st);
-      Display_GetDiagnostics(&display_diagnostics);
+      WS169_GetDiagnostics(&display_diagnostics);
       USB_Logging_Printf(LOG_LEVEL_INFO,
                          "HEALTH ThreadX=OK USBX=%s TouchGFX_FPS=%u BLE=%d Display=%d "
                          "DisplayFaults=%lu Heartbeat=%lu",

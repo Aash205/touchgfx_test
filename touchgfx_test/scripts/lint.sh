@@ -178,6 +178,11 @@ config_error=0
 
 is_excluded() {
     local path="$1"
+    # find and explicit targets can yield native Windows paths, while the
+    # exclusion globs below are intentionally written with POSIX separators.
+    # Normalize before matching so vendor/generated paths stay excluded on
+    # Git Bash as well as on Unix.
+    path="${path//\\//}"
     while IFS= read -r pattern; do
         [[ -z "$pattern" || "$pattern" == \#* ]] && continue
         # shellcheck disable=SC2053

@@ -48,7 +48,7 @@ Logs (`[INFO] [ss.mmm] ...`) share the same port; the Monitor thread prints a he
 
 ## Known risks (untested)
 
-- SPI2 runs at 40 MHz (80 MHz / 2). If the image is garbled, set `DISPLAY_SPI_PRESCALER` to `SPI_BAUDRATEPRESCALER_4` in `Core/Inc/unified.h`.
+- SPI2 runs at 40 MHz (80 MHz / 2). If the image is garbled, lower the SPI2 speed by changing the prescaler in `MX_SPI2_Init()` in `Core/Src/main.c`.
 - DMA2D support uses the TouchGFX 4.22 `STM32DMA` with the 4.26 framework.
 - BLE has not been tried against a real BlueNRG-2.
 - UI asset/file names still say `240x240` (they are 280x240 now).

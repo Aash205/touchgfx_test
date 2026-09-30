@@ -25,12 +25,13 @@ static volatile unsigned s_tail;   /* written by the drain thread */
 
 static TX_THREAD s_thread;
 static ULONG s_stack[DRAIN_STACK_BYTES / sizeof(ULONG)];
+static CHAR s_thread_name[] = {'U', 'S', 'B', ' ', 'C', 'D', 'C', ' ', 'l', 'o', 'g', '\0'};
 
 static VOID drain_entry(ULONG input);
 
 UINT UsbCdcLog_Init(void)
 {
-  return tx_thread_create(&s_thread, "USB CDC log", drain_entry, 0,
+  return tx_thread_create(&s_thread, s_thread_name, drain_entry, 0,
                           s_stack, sizeof(s_stack),
                           DRAIN_PRIORITY, DRAIN_PRIORITY, TX_NO_TIME_SLICE, TX_AUTO_START);
 }
@@ -39,7 +40,7 @@ void UsbCdcLog_OnActivate(VOID *cdc_acm_instance)
 {
   ULONG timeout = WRITE_TIMEOUT_TICKS;
 
-  s_cdc = (UX_SLAVE_CLASS_CDC_ACM *)cdc_acm_instance;
+  s_cdc = cdc_acm_instance;
   ux_device_class_cdc_acm_ioctl(s_cdc, UX_SLAVE_CLASS_CDC_ACM_IOCTL_SET_WRITE_TIMEOUT, (VOID *)timeout);
 
   /* Keep messages produced during boot. They are drained as soon as the host
@@ -66,12 +67,17 @@ unsigned UsbCdcLog_Write(const unsigned char *data, unsigned size)
   unsigned n = 0;
   TX_INTERRUPT_SAVE_AREA
 
-  TX_DISABLE
-  while (n < size && (s_head - s_tail) < RING_SIZE) {
-    s_ring[s_head & (RING_SIZE - 1U)] = data[n++];
-    s_head++;
+  if ((data != UX_NULL) && (size > 0U))
+  {
+    TX_DISABLE
+    while ((n < size) && ((s_head - s_tail) < RING_SIZE))
+    {
+      s_ring[s_head & (RING_SIZE - 1U)] = data[n];
+      n++;
+      s_head++;
+    }
+    TX_RESTORE
   }
-  TX_RESTORE
 
   return n;
 }
@@ -88,34 +94,40 @@ static VOID drain_entry(ULONG input)
     /* Enumeration alone does not mean a terminal is listening. Wait for the
        host to assert DTR so boot messages are not lost before Serial Monitor
        opens the COM port. */
-    if (s_configured && s_cdc != UX_NULL) {
+    if ((s_configured != 0U) && (s_cdc != UX_NULL)) {
       UX_SLAVE_CLASS_CDC_ACM_LINE_STATE_PARAMETER line_state = {0};
       if (ux_device_class_cdc_acm_ioctl(s_cdc,
                                         UX_SLAVE_CLASS_CDC_ACM_IOCTL_GET_LINE_STATE,
-                                        &line_state) == UX_SUCCESS) {
+                                        &line_state) == UX_SUCCESS)
+      {
         s_port_open = line_state.ux_slave_class_cdc_acm_parameter_dtr ? 1U : 0U;
       }
     } else {
       s_port_open = 0;
     }
 
-    if (!s_port_open) {
-      tx_thread_sleep(DRAIN_PERIOD_TICKS);
+    if (s_port_open == 0U) {
+      (void)tx_thread_sleep(DRAIN_PERIOD_TICKS);
       continue;
     }
 
-    while (s_tail != s_head && n < sizeof(chunk)) {
-      chunk[n++] = s_ring[s_tail & (RING_SIZE - 1U)];
+    while ((s_tail != s_head) && (n < (unsigned)sizeof(chunk)))
+    {
+      chunk[n] = s_ring[s_tail & (RING_SIZE - 1U)];
+      n++;
       s_tail++;
     }
 
-    if (n > 0 && s_port_open && s_cdc != UX_NULL) {
+    if ((n > 0U) && (s_port_open != 0U) && (s_cdc != UX_NULL))
+    {
       ULONG actual = 0;
-      ux_device_class_cdc_acm_write(s_cdc, chunk, n, &actual);   /* result ignored: best effort */
+      UINT write_status = ux_device_class_cdc_acm_write(s_cdc, chunk, n, &actual);
+      (void)write_status; /* A failed CDC write drops this best-effort log chunk. */
     }
 
-    if (s_tail == s_head) {
-      tx_thread_sleep(DRAIN_PERIOD_TICKS);
+    if (s_tail == s_head)
+    {
+      (void)tx_thread_sleep(DRAIN_PERIOD_TICKS);
     }
   }
 }

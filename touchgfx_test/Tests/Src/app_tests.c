@@ -4,7 +4,7 @@
   */
 #include "app_tests.h"
 #include "app_state.h"
-#include "unified.h"
+#include "waveshare_driver.h"
 #include "WS169_driver_tests.h"
 #include "ble_app.h"
 #include "uart_commands.h"
@@ -30,11 +30,12 @@ TestStatusTypeDef Test_Display(void)
          (unsigned)report.failed, (unsigned)report.executed,
          (unsigned long)report.failure_mask);
   }
-  if (Display_GetWidth() != 280U || Display_GetHeight() != 240U) {
-    FAIL("Display size %ux%u (expected 280x240)", Display_GetWidth(), Display_GetHeight());
+  if (WS169_GetWidth() != WS169_LANDSCAPE_WIDTH ||
+      WS169_GetHeight() != WS169_LANDSCAPE_HEIGHT) {
+    FAIL("Display size %ux%u (expected %ux%u)", WS169_GetWidth(), WS169_GetHeight(),
+         WS169_LANDSCAPE_WIDTH, WS169_LANDSCAPE_HEIGHT);
   }
-  if (Display_GetController() != DISPLAY_CONTROLLER_ST7789) { FAIL("Display controller"); }
-  Display_GetDiagnostics(&diagnostics);
+  WS169_GetDiagnostics(&diagnostics);
   if (!diagnostics.initialized || !diagnostics.rtos_ready) {
     FAIL("WS169 state initialized=%u rtos=%u", diagnostics.initialized ? 1U : 0U,
          diagnostics.rtos_ready ? 1U : 0U);

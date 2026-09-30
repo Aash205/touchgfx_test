@@ -26,7 +26,7 @@
 
 #include <touchgfx/hal/OSWrappers.hpp>
 #include "app_state.h"
-#include "unified.h"
+#include "waveshare_driver.h"
 #include <cstring>
 
 using namespace touchgfx;
@@ -42,15 +42,16 @@ void TouchGFXHAL::initialize()
     // Please note, HAL::initialize() must be called to initialize the framework.
 
     // Bring up the ST7789V2 panel (SPI2 + GPIO are already configured by main()).
-    displayStatus = Display_Init(DISPLAY_DEFAULT_ROTATION);
+    displayStatus = WS169_InitBoard(WS169_ROTATION_90);
 
     TouchGFXGeneratedHAL::initialize();
 
     // Blank the framebuffer: widgets narrower than the panel leave the rest untouched.
-    std::memset(getTFTFrameBuffer(), 0, DISPLAY_WIDTH * DISPLAY_HEIGHT * 2U);
+    std::memset(getTFTFrameBuffer(), 0,
+                WS169_LANDSCAPE_WIDTH * WS169_LANDSCAPE_HEIGHT * sizeof(uint16_t));
     if (displayStatus == WS169_STATUS_OK)
     {
-        (void)Display_FillScreenDirect(DISPLAY_COLOR_BLACK);
+        (void)WS169_FillScreenRGB565(0x0000U);
     }
 }
 
@@ -106,9 +107,9 @@ void TouchGFXHAL::flushFrameBuffer(const touchgfx::Rect& rect)
     TouchGFXGeneratedHAL::flushFrameBuffer(rect);
 
     // Push only the dirty rectangle to the panel over SPI (blocking).
-    if (Display_FlushRectRGB565(getTFTFrameBuffer(),
-                               (uint16_t)rect.x, (uint16_t)rect.y,
-                               (uint16_t)rect.width, (uint16_t)rect.height) ==
+    if (WS169_FlushRectRGB565(getTFTFrameBuffer(), WS169_LANDSCAPE_WIDTH,
+                              (uint16_t)rect.x, (uint16_t)rect.y,
+                              (uint16_t)rect.width, (uint16_t)rect.height) ==
         WS169_STATUS_OK)
     {
         AppState_FrameFlushed();

@@ -7,7 +7,7 @@ Firmware for STM32L496ZG (Nucleo-144) running ThreadX with a TouchGFX UI on a Wa
 
 | Area | Implementation |
 |---|---|
-| Display | ST7789V2 240x280 in landscape 280x240, RGB565, SPI2 (`Core/Src/unified.c`) |
+| Display | ST7789V2 240x280 in landscape 280x240, RGB565, SPI2 (`App/waveshare_driver/`) |
 | GUI | TouchGFX 4.26, 3 screens, 280x240 backgrounds, DMA2D (Chrom-ART) accelerated blits |
 | RTOS | ThreadX: TouchGFX (5), BLE (10), UART cmd (11), Monitor (12); 20 ms VSYNC timer |
 | BLE | BlueNRG-2 peripheral, SPI1 5 MHz, advertises `Nucleo-BLE-Demo`, re-advertises on disconnect |

@@ -20,6 +20,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
 /* Private variables ---------------------------------------------------------*/
 extern UART_HandleTypeDef hlpuart1;
@@ -29,6 +30,7 @@ extern UART_HandleTypeDef hlpuart1;
 
 static TX_MUTEX log_mutex;
 static volatile uint8_t log_mutex_ready = 0;
+static CHAR log_mutex_name[] = {'L', 'o', 'g', ' ', 'm', 'u', 't', 'e', 'x', '\0'};
 
 static USB_LoggingTypeDef usb_logging = {
   .tx_size = 0,
@@ -41,7 +43,7 @@ static ULONG log_timeout_ticks(void)
   ULONG ticks = (ULONG)(((uint64_t)LOG_MUTEX_TIMEOUT_MS *
                          (uint64_t)TX_TIMER_TICKS_PER_SECOND + 999ULL) / 1000ULL);
 
-  return (ticks == 0U) ? 1U : ticks;
+  return ticks;
 }
 
 /**
@@ -49,15 +51,23 @@ static ULONG log_timeout_ticks(void)
  */
 int USB_Logging_Init(void)
 {
+  int status = 0;
+
   usb_logging.tx_size = 0;
   usb_logging.log_count = 0;
   
-  if (!log_mutex_ready) {
-    if (tx_mutex_create(&log_mutex, (CHAR *)"Log mutex", TX_INHERIT) != TX_SUCCESS) return -1;
-    log_mutex_ready = 1;
+  if (log_mutex_ready == 0U) {
+    if (tx_mutex_create(&log_mutex, log_mutex_name, TX_INHERIT) != TX_SUCCESS)
+    {
+      status = -1;
+    }
+    else
+    {
+      log_mutex_ready = 1U;
+    }
   }
 
-  return 0;
+  return status;
 }
 
 /**
@@ -67,67 +77,109 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
 {
   va_list args;
   char log_buffer[256];
-  char level_str[16];
+  const char *level_str;
   int written;
+  int result = -1;
   
-  if (level < usb_logging.log_level) return 0;
-  
-  switch (level) {
-    case LOG_LEVEL_DEBUG: strcpy(level_str, "[DEBUG]"); break;
-    case LOG_LEVEL_INFO: strcpy(level_str, "[INFO]"); break;
-    case LOG_LEVEL_WARNING: strcpy(level_str, "[WARN]"); break;
-    case LOG_LEVEL_ERROR: strcpy(level_str, "[ERROR]"); break;
-    case LOG_LEVEL_CRITICAL: strcpy(level_str, "[CRIT]"); break;
-    default: strcpy(level_str, "[?]"); break;
+  if (level < usb_logging.log_level)
+  {
+    result = 0;
   }
-  
-  va_start(args, format);
-  written = vsnprintf(log_buffer, sizeof(log_buffer) - 20, format, args);
-  va_end(args);
-  
-  if (written > 0) {
-    /* Format: [LEVEL] timestamp: message\r\n */
-    char formatted[256];
-    uint32_t ms = HAL_GetTick();
-    int len = snprintf(formatted, sizeof(formatted), "%s [%04lu.%03lu] %s\r\n", 
-                      level_str, ms/1000, ms%1000, log_buffer);
-    
-    if (len > 0) {
-      USB_Logging_SendRaw((uint8_t *)formatted, len);
-      usb_logging.log_count++;
+  else if (format == NULL)
+  {
+    result = -1;
+  }
+  else
+  {
+    switch (level) {
+      case LOG_LEVEL_DEBUG: level_str = "[DEBUG]"; break;
+      case LOG_LEVEL_INFO: level_str = "[INFO]"; break;
+      case LOG_LEVEL_WARNING: level_str = "[WARN]"; break;
+      case LOG_LEVEL_ERROR: level_str = "[ERROR]"; break;
+      case LOG_LEVEL_CRITICAL: level_str = "[CRIT]"; break;
+      default: level_str = "[?]"; break;
     }
-    return len;
+
+    va_start(args, format);
+    written = vsnprintf(log_buffer, sizeof(log_buffer) - 20U, format, args);
+    va_end(args);
+
+    if (written > 0)
+    {
+      char formatted[256];
+      uint32_t ms = HAL_GetTick();
+      int len = snprintf(formatted, sizeof(formatted), "%s [%04lu.%03lu] %s\r\n",
+                         level_str,
+                         (unsigned long)(ms / 1000U),
+                         (unsigned long)(ms % 1000U),
+                         log_buffer);
+
+      if (len > 0)
+      {
+        size_t transmitted = (size_t)len;
+        if (transmitted >= sizeof(formatted))
+        {
+          transmitted = sizeof(formatted) - 1U;
+        }
+        (void)USB_Logging_SendRaw((const uint8_t *)formatted, (uint16_t)transmitted);
+        usb_logging.log_count++;
+        result = (int)transmitted;
+      }
+    }
   }
-  
-  return -1;
+
+  return result;
 }
 
 /**
  * @brief Send raw data to LPUART1 and USB CDC
  */
-int USB_Logging_SendRaw(uint8_t *data, uint16_t size)
+int USB_Logging_SendRaw(const uint8_t *data, uint16_t size)
 {
   HAL_StatusTypeDef uart_status;
+  UINT lock_status = TX_SUCCESS;
+  UINT unlock_status = TX_SUCCESS;
   unsigned queued;
+  uint8_t locked = 0U;
+  uint8_t can_send = 0U;
 
-  if (!data || size == 0) return -1;
+  int result = -1;
 
-  /* The mutex only exists once the kernel runs; before that there is a single context. */
-  uint8_t locked = 0;
-  if (log_mutex_ready && tx_thread_identify() != NULL) {
-    if (tx_mutex_get(&log_mutex, log_timeout_ticks()) != TX_SUCCESS) return -1;
-    locked = 1;
+  if ((data != NULL) && (size != 0U))
+  {
+    /* The mutex only exists once the kernel runs; before that there is a single context. */
+    if ((log_mutex_ready != 0U) && (tx_thread_identify() != NULL))
+    {
+      lock_status = tx_mutex_get(&log_mutex, log_timeout_ticks());
+      if (lock_status == TX_SUCCESS)
+      {
+        locked = 1U;
+        can_send = 1U;
+      }
+    }
+    else
+    {
+      can_send = 1U;
+    }
+
+    if (can_send != 0U)
+    {
+      queued = UsbCdcLog_Write(data, (unsigned)size);
+      uart_status = HAL_UART_Transmit(&hlpuart1, (uint8_t *)(uintptr_t)data,
+                                      size, LOG_UART_TIMEOUT_MS);
+      result = ((queued == (unsigned)size) || (uart_status == HAL_OK)) ? (int)size : -1;
+
+      if (locked != 0U)
+      {
+        unlock_status = tx_mutex_put(&log_mutex);
+        if (unlock_status != TX_SUCCESS)
+        {
+          result = -1;
+        }
+      }
+    }
   }
-
-  /* Queue to USB even before enumeration so early BLE/RTOS diagnostics survive. */
-  queued = UsbCdcLog_Write(data, size);
-
-  /* LPUART1 is full duplex: interrupt-driven RX remains active during this bounded TX. */
-  uart_status = HAL_UART_Transmit(&hlpuart1, data, size, LOG_UART_TIMEOUT_MS);
-
-  if (locked) tx_mutex_put(&log_mutex);
-
-  return ((queued == size) || (uart_status == HAL_OK)) ? (int)size : -1;
+  return result;
 }
 
 /**

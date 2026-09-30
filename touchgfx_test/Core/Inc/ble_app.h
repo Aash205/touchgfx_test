@@ -8,8 +8,8 @@
   */
 /* USER CODE END Header */
 
-#ifndef __BLE_APP_H__
-#define __BLE_APP_H__
+#ifndef BLE_APP_H
+#define BLE_APP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,4 +87,4 @@ int BLE_App_SendData(uint8_t *data, uint16_t size);
 }
 #endif
 
-#endif /* __BLE_APP_H__ */
+#endif /* BLE_APP_H */

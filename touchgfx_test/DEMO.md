@@ -8,7 +8,7 @@ Work through the stages below in order and stop at the first failure.
 | Feature | Where |
 |---|---|
 | TouchGFX "Live Status" screen (280x240): BLE state, uptime, heartbeat, FPS, LD1/LD3 buttons | `TouchGFX/gui/**` |
-| ST7789V2 panel over SPI2, 40 MHz, DMA pixel path, DMA2D (Chrom-ART) | `Core/Src/unified.c`, `TouchGFX/target/**` |
+| ST7789V2 panel over SPI2, 40 MHz, DMA pixel path, DMA2D (Chrom-ART) | `App/waveshare_driver/**`, `TouchGFX/target/**` |
 | BlueNRG-2 BLE peripheral + custom GATT service (LED control, status notify) | `Core/Src/ble_app.c` |
 | LPUART1 command console + self tests | `Core/Src/uart_commands.c`, `app_tests.c` |
 | Shared state, LED ownership, Nucleo B1 button | `Core/Src/app_core.c`, `Core/Inc/app_state.h` |
@@ -39,8 +39,8 @@ Expect: panel shows "Live Status", four rows and two buttons; console prints `Co
 | Symptom | Try |
 |---|---|
 | Blank/white screen | CS/DC/RES wiring, 3.3 V supply |
-| Garbled/shifted image | `DISPLAY_SPI_PRESCALER` to `SPI_BAUDRATEPRESCALER_4` in `Core/Inc/unified.h` |
-| Colors swapped | `DISPLAY_ST7789_BGR` to 1 in `unified.h` |
+| Garbled/shifted image | Lower SPI2 speed by changing the prescaler in `MX_SPI2_Init()` in `Core/Src/main.c` |
+| Colors swapped | Check the ST7789 MADCTL and pixel-format initialization in `App/waveshare_driver/Src/waveshare_driver.c` |
 | No console output at all | Debugger: look for a HardFault (80 MHz clock setup, ThreadX start) |
 
 ## 2. Screen values
@@ -126,6 +126,6 @@ Run the stages above. For USB CDC: after flashing, connect the Nucleo USB user p
 
 ## What is permanent vs generated
 
-- **App-owned (never regenerated):** `Core/Src/{unified,ble_app,uart_commands,usb_logging,usb_cdc_log,app_tests,app_bsp,app_core}.c`, `Core/Inc/{unified,app_state,app_core,usb_cdc_log,...}.h`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`.
+- **App-owned (never regenerated):** `App/waveshare_driver/**`, `Core/Src/{ble_app,uart_commands,usb_logging,usb_cdc_log,app_tests,app_bsp,app_core}.c`, `Core/Inc/{app_state,app_core,usb_cdc_log,...}.h`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`.
 - **Hooks in generated files (inside USER CODE blocks):** `app_threadx.c`, `stm32l4xx_it.c`, `ux_device_cdc_acm.c`, `app_azure_rtos_config.h`, `app_usbx_device.h`.
 - **Derived from the `.ioc`:** pins, clocks, DMA/DMA2D/USB setup, NVIC, framebuffer size.

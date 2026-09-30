@@ -6,8 +6,11 @@
   */
 
 #include "waveshare_driver.h"
+#include "main.h"
 #include "tx_api.h"
 #include <stddef.h>
+
+extern SPI_HandleTypeDef hspi2;
 
 #define WS169_CMD_SLEEP_IN       0x10U
 #define WS169_CMD_SLEEP_OUT      0x11U
@@ -18,7 +21,6 @@
 #define WS169_CMD_ROW_ADDRESS    0x2BU
 #define WS169_CMD_MEMORY_WRITE   0x2CU
 #define WS169_CMD_MADCTL         0x36U
-#define WS169_CMD_PIXEL_FORMAT   0x3AU
 
 #define WS169_SPI_DATA_8BIT      SPI_DATASIZE_8BIT
 #define WS169_SPI_DATA_16BIT     SPI_DATASIZE_16BIT
@@ -43,6 +45,23 @@ static TX_SEMAPHORE s_dma_semaphore;
 static TX_MUTEX s_bus_mutex;
 static bool s_semaphore_ready;
 static bool s_mutex_ready;
+
+WS169_Status_t WS169_InitBoard(WS169_Rotation_t rotation)
+{
+    const WS169_Config_t config = {
+        .spi = &hspi2,
+        .cs_port = DISP_CS_GPIO_Port,
+        .cs_pin = DISP_CS_Pin,
+        .dc_port = DISP_DC_GPIO_Port,
+        .dc_pin = DISP_DC_Pin,
+        .reset_port = DISP_RES_GPIO_Port,
+        .reset_pin = DISP_RES_Pin,
+        .command_timeout_ms = 100U,
+        .data_timeout_ms = 1000U
+    };
+
+    return WS169_Init(&config, rotation);
+}
 
 static uint32_t ws169_enter_critical(void)
 {
@@ -193,16 +212,19 @@ static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
                                               uint32_t size,
                                               uint32_t timeout_ms)
 {
-    if ((data == NULL) || (size == 0U))
+    const uint8_t *cursor = data;
+    uint32_t remaining = size;
+
+    if ((cursor == NULL) || (remaining == 0U))
     {
         return WS169_STATUS_INVALID_ARGUMENT;
     }
 
-    while (size > 0U)
+    while (remaining > 0U)
     {
-        uint16_t chunk = (size > 0xFFFFU) ? 0xFFFFU : (uint16_t)size;
+        uint16_t chunk = (remaining > 0xFFFFU) ? 0xFFFFU : (uint16_t)remaining;
         HAL_StatusTypeDef hal_status = HAL_SPI_Transmit(s_config.spi,
-                                                       (uint8_t *)(uintptr_t)data,
+                                                       (uint8_t *)(uintptr_t)cursor,
                                                        chunk,
                                                        timeout_ms);
         WS169_Status_t status = ws169_status_from_hal(hal_status, false);
@@ -212,8 +234,8 @@ static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
             return status;
         }
 
-        data += chunk;
-        size -= chunk;
+        cursor += chunk;
+        remaining -= chunk;
     }
 
     ws169_record_successful_transfer();
@@ -278,94 +300,6 @@ static WS169_Status_t ws169_set_spi_data_size(uint32_t data_size)
         (void)HAL_SPI_Init(s_config.spi);
         return ws169_status_from_hal(hal_status, false);
     }
-
-    return WS169_STATUS_OK;
-}
-
-WS169_Status_t WS169_GetGeometry(WS169_Rotation_t rotation,
-                                 uint16_t *width,
-                                 uint16_t *height,
-                                 uint8_t *madctl)
-{
-    if ((rotation >= WS169_ROTATION_COUNT) ||
-        (width == NULL) || (height == NULL) || (madctl == NULL))
-    {
-        return WS169_STATUS_INVALID_ARGUMENT;
-    }
-
-    switch (rotation)
-    {
-        case WS169_ROTATION_0:
-            *width = WS169_PORTRAIT_WIDTH;
-            *height = WS169_PORTRAIT_HEIGHT;
-            *madctl = 0x00U;
-            break;
-
-        case WS169_ROTATION_90:
-            *width = WS169_LANDSCAPE_WIDTH;
-            *height = WS169_LANDSCAPE_HEIGHT;
-            *madctl = 0x60U;
-            break;
-
-        case WS169_ROTATION_180:
-            *width = WS169_PORTRAIT_WIDTH;
-            *height = WS169_PORTRAIT_HEIGHT;
-            *madctl = 0xC0U;
-            break;
-
-        case WS169_ROTATION_270:
-            *width = WS169_LANDSCAPE_WIDTH;
-            *height = WS169_LANDSCAPE_HEIGHT;
-            *madctl = 0xA0U;
-            break;
-
-        default:
-            return WS169_STATUS_INVALID_ARGUMENT;
-    }
-
-    return WS169_STATUS_OK;
-}
-
-WS169_Status_t WS169_TranslateWindow(WS169_Rotation_t rotation,
-                                    uint16_t x1,
-                                    uint16_t y1,
-                                    uint16_t x2,
-                                    uint16_t y2,
-                                    WS169_Window_t *translated)
-{
-    uint16_t width = 0U;
-    uint16_t height = 0U;
-    uint8_t madctl = 0U;
-    uint16_t x_offset;
-    uint16_t y_offset;
-    WS169_Status_t status;
-
-    if (translated == NULL)
-    {
-        return WS169_STATUS_INVALID_ARGUMENT;
-    }
-
-    status = WS169_GetGeometry(rotation, &width, &height, &madctl);
-    (void)madctl;
-    if (status != WS169_STATUS_OK)
-    {
-        return status;
-    }
-
-    if ((x1 > x2) || (y1 > y2) || (x2 >= width) || (y2 >= height))
-    {
-        return WS169_STATUS_INVALID_ARGUMENT;
-    }
-
-    x_offset = ((rotation == WS169_ROTATION_90) ||
-                (rotation == WS169_ROTATION_270)) ? WS169_CONTROLLER_RAM_OFFSET : 0U;
-    y_offset = ((rotation == WS169_ROTATION_0) ||
-                (rotation == WS169_ROTATION_180)) ? WS169_CONTROLLER_RAM_OFFSET : 0U;
-
-    translated->x_start = (uint16_t)(x1 + x_offset);
-    translated->x_end = (uint16_t)(x2 + x_offset);
-    translated->y_start = (uint16_t)(y1 + y_offset);
-    translated->y_end = (uint16_t)(y2 + y_offset);
 
     return WS169_STATUS_OK;
 }
@@ -577,19 +511,22 @@ WS169_Status_t WS169_Init(const WS169_Config_t *config, WS169_Rotation_t rotatio
 
 WS169_Status_t WS169_RtosInit(void)
 {
+    static CHAR semaphore_name[] = {'W', 'S', '1', '6', '9', ' ', 'D', 'M', 'A', '\0'};
+    static CHAR mutex_name[] = {'W', 'S', '1', '6', '9', ' ', 'b', 'u', 's', '\0'};
+
     if (s_semaphore_ready && s_mutex_ready)
     {
         return WS169_STATUS_OK;
     }
 
-    if (tx_semaphore_create(&s_dma_semaphore, (CHAR *)"WS169 DMA", 0U) != TX_SUCCESS)
+    if (tx_semaphore_create(&s_dma_semaphore, semaphore_name, 0U) != TX_SUCCESS)
     {
         ws169_record_status(WS169_STATUS_RTOS_ERROR, 0U);
         return WS169_STATUS_RTOS_ERROR;
     }
     s_semaphore_ready = true;
 
-    if (tx_mutex_create(&s_bus_mutex, (CHAR *)"WS169 bus", TX_INHERIT) != TX_SUCCESS)
+    if (tx_mutex_create(&s_bus_mutex, mutex_name, TX_INHERIT) != TX_SUCCESS)
     {
         (void)tx_semaphore_delete(&s_dma_semaphore);
         s_semaphore_ready = false;
@@ -871,14 +808,15 @@ WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
         if ((x == 0U) && (width == framebuffer_stride_pixels))
         {
             const uint16_t *source = &framebuffer[(uint32_t)y * framebuffer_stride_pixels];
+            uint32_t offset = 0U;
             uint32_t remaining = (uint32_t)width * height;
 
             while ((remaining > 0U) && (status == WS169_STATUS_OK))
             {
                 uint16_t count = (remaining > WS169_DMA_MAX_PIXELS) ?
                                  (uint16_t)WS169_DMA_MAX_PIXELS : (uint16_t)remaining;
-                status = ws169_send_pixels(source, count);
-                source += count;
+                status = ws169_send_pixels(&source[offset], count);
+                offset += count;
                 remaining -= count;
             }
         }
@@ -887,7 +825,7 @@ WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
             for (uint16_t row = 0U; (row < height) && (status == WS169_STATUS_OK); row++)
             {
                 const uint16_t *source = &framebuffer[
-                    ((uint32_t)y + row) * framebuffer_stride_pixels + x];
+                    (((uint32_t)y + row) * framebuffer_stride_pixels) + x];
                 status = ws169_send_pixels(source, width);
             }
         }
@@ -1011,4 +949,14 @@ bool WS169_OnSpiError(SPI_HandleTypeDef *spi)
     }
 
     return true;
+}
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    (void)WS169_OnSpiTxComplete(hspi);
+}
+
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+{
+    (void)WS169_OnSpiError(hspi);
 }

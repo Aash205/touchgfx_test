@@ -12,13 +12,16 @@
 #include "usb_logging.h"
 #include "ble_app.h"
 #include "app_tests.h"
+#include "uart_line.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 /* Private function prototypes -----------------------------------------------*/
 static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd);
 static void UART_CMD_SendResponse(UART_CommandTypeDef *handler, const char *response);
+static void UART_CMD_GetStatus(const UART_CommandTypeDef *handler, char *status_str);
 
 /**
  * @brief Initialize UART command handler
@@ -75,7 +78,7 @@ int UART_CMD_Process(UART_CommandTypeDef *handler)
 {
   if (!handler->command_ready) return 1;
 
-  USB_Logging_Printf(LOG_LEVEL_DEBUG, "LPUART1 command received: %s", handler->rx_buffer);
+  (void)USB_Logging_Printf(LOG_LEVEL_DEBUG, "LPUART1 command received: %s", handler->rx_buffer);
   UART_CMD_ParseCommand(handler, handler->rx_buffer);
   handler->rx_index = 0;
   memset(handler->rx_buffer, 0, sizeof(handler->rx_buffer));
@@ -89,19 +92,10 @@ int UART_CMD_Process(UART_CommandTypeDef *handler)
  */
 void UART_CMD_ReceiveCallback(UART_CommandTypeDef *handler, uint8_t data)
 {
-  /* A previous command is still waiting to be parsed: drop input until it is consumed. */
-  if (!handler->command_ready) {
-    if (data == '\r' || data == '\n') {
-      if (handler->rx_index > 0) {
-        handler->rx_buffer[handler->rx_index] = '\0';
-        handler->command_ready = 1;
-      }
-    } else if (handler->rx_index < sizeof(handler->rx_buffer) - 1) {
-      handler->rx_buffer[handler->rx_index++] = data;
-    }
-  }
+  UART_LineFeedByte(handler->rx_buffer, (uint8_t)sizeof(handler->rx_buffer),
+                    &handler->rx_index, &handler->command_ready, data);
 
-  HAL_UART_Receive_IT(handler->huart, &handler->rx_byte, 1);
+  (void)HAL_UART_Receive_IT(handler->huart, &handler->rx_byte, 1U);
 }
 
 /**
@@ -113,26 +107,27 @@ static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd)
   
   if (strncmp(cmd, "LED", 3) == 0) {
     /* LED command: LED<N> <ON|OFF|TOGGLE> */
-    int led_num = cmd[3] - '0';
-    if (led_num < 0 || led_num >= handler->led_count) {
+    int led_num = (int)(cmd[3] - '0');
+    if ((cmd[3] < '0') || (cmd[3] > '9') ||
+        (led_num < 0) || (led_num >= (int)handler->led_count)) {
       UART_CMD_SendResponse(handler, "ERROR: Invalid LED\r\n");
       return;
     }
     
-    if (strstr(cmd, "ON")) {
-      UART_CMD_SetLEDState(handler, led_num, LED_ON);
+    if (strstr(cmd, "ON") != NULL) {
+      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_ON);
       snprintf(response, sizeof(response), "LED%d: ON\r\n", led_num);
-    } else if (strstr(cmd, "OFF")) {
-      UART_CMD_SetLEDState(handler, led_num, LED_OFF);
+    } else if (strstr(cmd, "OFF") != NULL) {
+      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_OFF);
       snprintf(response, sizeof(response), "LED%d: OFF\r\n", led_num);
-    } else if (strstr(cmd, "FAST")) {
-      UART_CMD_SetLEDState(handler, led_num, LED_BLINK_FAST);
+    } else if (strstr(cmd, "FAST") != NULL) {
+      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_BLINK_FAST);
       snprintf(response, sizeof(response), "LED%d: BLINK FAST\r\n", led_num);
-    } else if (strstr(cmd, "BLINK")) {
-      UART_CMD_SetLEDState(handler, led_num, LED_BLINK_SLOW);
+    } else if (strstr(cmd, "BLINK") != NULL) {
+      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_BLINK_SLOW);
       snprintf(response, sizeof(response), "LED%d: BLINK\r\n", led_num);
-    } else if (strstr(cmd, "TOGGLE")) {
-      UART_CMD_SetLEDState(handler, led_num, LED_TOGGLE);
+    } else if (strstr(cmd, "TOGGLE") != NULL) {
+      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_TOGGLE);
       snprintf(response, sizeof(response), "LED%d: TOGGLE\r\n", led_num);
     } else {
       UART_CMD_SendResponse(handler, "ERROR: Invalid command\r\n");
@@ -150,10 +145,12 @@ static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd)
       (void)Test_RunAll();
     } else {
       char *end = NULL;
+      errno = 0;
       long case_id = strtol(selection, &end, 10);
       while ((end != NULL) && (*end == ' ')) { end++; }
       if ((end == selection) || ((end != NULL) && (*end != '\0')) ||
-          (case_id < 1L) || (case_id > (long)TEST_CASE_COUNT)) {
+          (errno == ERANGE) || (case_id < 1L) ||
+          (case_id > (long)TEST_CASE_COUNT)) {
         UART_CMD_SendResponse(handler, "ERROR: TEST expects ALL or a case number 1-5\r\n");
       } else {
         (void)Test_RunOne((uint8_t)case_id);
@@ -181,7 +178,8 @@ static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd)
 static void UART_CMD_SendResponse(UART_CommandTypeDef *handler, const char *response)
 {
   (void)handler;
-  USB_Logging_SendRaw((uint8_t *)response, (uint16_t)strlen(response)); /* shared, mutex-protected console */
+  (void)USB_Logging_SendRaw((const uint8_t *)response,
+                            (uint16_t)strlen(response)); /* shared, mutex-protected console */
 }
 
 /**
@@ -189,7 +187,7 @@ static void UART_CMD_SendResponse(UART_CommandTypeDef *handler, const char *resp
  */
 void UART_CMD_UpdateLEDs(UART_CommandTypeDef *handler)
 {
-  for (int i = 0; i < handler->led_count; i++) {
+  for (uint8_t i = 0U; i < handler->led_count; i++) {
     LED_HandleTypeDef *led = &handler->leds[i];
     
     if (led->state == LED_ON) {
@@ -214,7 +212,7 @@ void UART_CMD_UpdateLEDs(UART_CommandTypeDef *handler)
  */
 void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_StateTypeDef state)
 {
-  if (led_index >= handler->led_count) return;
+  if (led_index >= handler->led_count) { return; }
   
   LED_HandleTypeDef *led = &handler->leds[led_index];
   led->state = state;
@@ -227,10 +225,10 @@ void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_S
     HAL_GPIO_TogglePin(led->port, led->pin);
     led->state = (HAL_GPIO_ReadPin(led->port, led->pin) == GPIO_PIN_SET) ? LED_ON : LED_OFF;
   } else if (state == LED_BLINK_SLOW) {
-    led->blink_period = 500;  /* toggle every 500 ms */
+    led->blink_period = 500U;  /* toggle every 500 ms */
     led->blink_count = HAL_GetTick();
   } else if (state == LED_BLINK_FAST) {
-    led->blink_period = 100;  /* toggle every 100 ms */
+    led->blink_period = 100U;  /* toggle every 100 ms */
     led->blink_count = HAL_GetTick();
   }
 }
@@ -238,12 +236,13 @@ void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_S
 /**
  * @brief Get status string
  */
-void UART_CMD_GetStatus(UART_CommandTypeDef *handler, char *status_str)
+static void UART_CMD_GetStatus(const UART_CommandTypeDef *handler, char *status_str)
 {
-  char led_status[64] = "";
-  
-  for (int i = 0; i < handler->led_count; i++) {
-    char buf[16];
+  char led_status[96] = "";
+  size_t used = 0U;
+
+  for (uint8_t i = 0U; i < handler->led_count; i++) {
+    char buf[24];
     const char *state_str;
     
     switch (handler->leds[i].state) {
@@ -255,8 +254,15 @@ void UART_CMD_GetStatus(UART_CommandTypeDef *handler, char *status_str)
       default: state_str = "UNKNOWN"; break;
     }
     
-    snprintf(buf, sizeof(buf), "LED%d: %s\r\n", i, state_str);
-    strcat(led_status, buf);
+    int len = snprintf(buf, sizeof(buf), "LED%u: %s\r\n", (unsigned)i, state_str);
+    if ((len > 0) && ((size_t)len < sizeof(buf)) && (used < sizeof(led_status)))
+    {
+      int appended = snprintf(&led_status[used], sizeof(led_status) - used, "%s", buf);
+      if ((appended > 0) && ((size_t)appended < (sizeof(led_status) - used)))
+      {
+        used += (size_t)appended;
+      }
+    }
   }
   
   snprintf(status_str, 128, "=== Status ===\r\n%s", led_status);

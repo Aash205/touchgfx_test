@@ -8,8 +8,8 @@
   */
 /* USER CODE END Header */
 
-#ifndef __USB_LOGGING_H__
-#define __USB_LOGGING_H__
+#ifndef USB_LOGGING_H
+#define USB_LOGGING_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,7 +56,7 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...);
  * @param size: Data size
  * @retval Status
  */
-int USB_Logging_SendRaw(uint8_t *data, uint16_t size);
+int USB_Logging_SendRaw(const uint8_t *data, uint16_t size);
 
 /**
  * @brief Log system status
@@ -73,4 +73,4 @@ int USB_Logging_Flush(void);
 }
 #endif
 
-#endif /* __USB_LOGGING_H__ */
+#endif /* USB_LOGGING_H */

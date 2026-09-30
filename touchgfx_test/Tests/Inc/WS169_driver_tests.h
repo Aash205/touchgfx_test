@@ -11,7 +11,7 @@ extern "C" {
 
 #include <stdint.h>
 
-typedef enum {
+enum {
   WS169_TEST_PANEL_CONSTANTS = (1UL << 0),
   WS169_TEST_GEOMETRY_0 = (1UL << 1),
   WS169_TEST_GEOMETRY_90 = (1UL << 2),
@@ -24,7 +24,7 @@ typedef enum {
   WS169_TEST_REVERSED_WINDOW = (1UL << 9),
   WS169_TEST_RANGE_GUARD = (1UL << 10),
   WS169_TEST_NULL_GUARD = (1UL << 11)
-} WS169_TestFailure_t;
+};
 
 typedef struct {
   uint16_t executed;
