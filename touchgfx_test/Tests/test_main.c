@@ -177,7 +177,7 @@ int main(void)
     test_window_boundaries();
     test_invalid_arguments();
     test_uart_line_assembly();
-    (void)printf("\nHost firmware tests: %u/%u passed, %u failed\n",
+    (void)printf("\nUnit tests: %u/%u passed, %u failed\n",
                  s_checks - s_failures, s_checks, s_failures);
     return (s_failures == 0U) ? 0 : 1;
 }

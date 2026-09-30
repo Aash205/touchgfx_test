@@ -36,7 +36,7 @@ using it as LCD RES.
 
 ```
 cmake --preset Debug && cmake --build --preset Debug     # output: build/Debug/touchgfx_test.elf
-scripts/host-test.sh                                      # unit tests on the PC, no board needed
+scripts/unit-test.sh                                      # unit tests on the PC, no board needed
 scripts/format.sh check && scripts/lint.sh                # format and MISRA C:2012 lint
 ```
 

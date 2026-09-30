@@ -52,7 +52,7 @@ planned.
 ```
 scripts/format.sh check
 scripts/lint.sh          # generates compile_commands.json on first run (scripts/gen_compile_db.sh)
-scripts/host-test.sh
+scripts/unit-test.sh
 ```
 
 Both also run via pre-commit (`scripts/setup.sh` to install).

@@ -1,14 +1,14 @@
-# Host firmware logic tests
+# Unit tests
 
 These tests run production firmware logic on the development computer before
 flashing. They do not require a board or UART and do not validate electrical
 or peripheral behavior.
 
-Configure and build with the native host compiler, then run the case-by-case
+Configure and build with the native compiler, then run the case-by-case
 report:
 
 ```sh
-scripts/host-test.sh
+scripts/unit-test.sh
 ```
 
 The test executable returns a nonzero exit code if any case fails. The suite
