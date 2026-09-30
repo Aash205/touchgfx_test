@@ -62,7 +62,8 @@ BLE         BLE status code
 HELP
 ```
 
-Log lines look like `[INFO] [ss.mmm] ...`; the Monitor thread logs a heartbeat every 5 s.
+Log lines look like `[INFO] [ssss.mmm] ...`. The Monitor thread logs a status line every 5 s:
+`HEALTH ThreadX=OK USBX=<ACTIVE|WAIT> TouchGFX_FPS=<n> BLE=<n> Display=<n> DisplayFaults=<n> Heartbeat=<n>`.
 
 ## BLE GATT demo service
 
@@ -72,6 +73,45 @@ Advertised as `Nucleo-BLE-Demo` (use nRF Connect). Service `8a7c0001-4c3e-4e2b-9
 |---|---|---|
 | `...0002` LED control | read / write | 1 byte bitmask (bit0 = LD1, bit1 = LD3) |
 | `...0003` status | read / notify | 6 bytes: `ble_status`, `led_mask`, heartbeat (u32 little-endian); notified every second |
+
+## Bring-up checklist
+
+Expected behaviour from the original bring-up notes; none of it has been verified on hardware.
+Work through the stages in order and stop at the first failure.
+
+1. **Boot and display.** The panel shows "Live Status" with four rows and two LED buttons, and
+   the console prints `Console ready. Type HELP.`
+
+   | Symptom | Try |
+   |---|---|
+   | Blank or white screen | CS/DC/RES wiring, 3.3 V supply |
+   | Garbled or shifted image | Lower the SPI2 speed via the prescaler in `MX_SPI2_Init()` (`Core/Src/main.c`) |
+   | Colours swapped | Check the ST7789 MADCTL and pixel-format initialisation in `App/waveshare_driver/Src/waveshare_driver.c` |
+   | No console output at all | Attach a debugger and look for a HardFault (80 MHz clock setup, ThreadX start) |
+
+2. **Screen values.** Uptime ticks every second, FPS is above 0 while the UI redraws, and the
+   heartbeat rises by 1 every 5 s (visible in the `HEALTH` line).
+3. **Console and LEDs.** `HELP` lists the commands; `LED0 ON` lights LD1 and the on-screen
+   button follows within about 200 ms; `LED1 TOGGLE` toggles LD3; `LED0 BLINK` / `LED0 FAST`
+   blink slowly / quickly; `STATUS` prints the LED states; `BLE` prints `BLE status: 3`
+   (advertising). The blue user button B1 toggles LD1 and the on-screen button.
+4. **BLE (nRF Connect on a phone).**
+   - Connect to `Nucleo-BLE-Demo`; the screen shows Connected and the console logs `BLE connected`.
+   - Write `03` to `...0002`: both LEDs and both on-screen buttons turn on; `00` turns them off.
+     After `LED0 ON` on the console, reading `...0002` follows the state.
+   - Subscribe to `...0003`: one 6-byte notification per second (byte 0 = `04` connected,
+     byte 1 = LED mask, bytes 2-5 = heartbeat, little-endian).
+   - Disconnect: the console logs `re-advertising` and the screen returns to Advertising.
+   - `BLE bring-up failed (is the BlueNRG-2 shield fitted?)` in the log means: check shield
+     seating and the CS / RST / IRQ wiring.
+5. **USB CDC log (optional).** Connect the Nucleo USB user port to the PC and open the new
+   serial port (`/dev/ttyACM*`). The same log lines as on LPUART1 appear once the port is open
+   (the sink waits for DTR); the `USBX=` field in the `HEALTH` line shows `ACTIVE`.
+6. **Stress (5 minutes).** `LED0 FAST` with BLE connected; the screen must not freeze and FPS
+   must not drop to 0.
+
+Not testable yet: the on-screen buttons need a touch controller (`STM32TouchController.cpp` is
+a stub), so they only show state.
 
 ## Architecture
 
@@ -126,6 +166,7 @@ Peripherals: SPI2 (LCD), SPI1 (BlueNRG-2), LPUART1 (console), DMA1, DMA2D, CRC, 
 | `TouchGFX/target/TouchGFXHAL.cpp` | inits the panel, flushes dirty rows, `touchgfxSignalVSync()` |
 | `TouchGFX/gui/**` | screens, presenters, `Model`, custom widgets (user-owned) |
 | `Core/Src/app_threadx.c` | VSYNC timer, threads, UART RX callbacks |
+| `Core/Src/dma2d.c` | DMA2D init for TouchGFX |
 | `Core/Src/app_core.c` | shared `AppState`, LED/console ownership, user button |
 | `Core/Src/ble_app.c` | BlueNRG-2 init, advertising, event dispatch, GATT service |
 | `Core/Src/uart_commands.c`, `uart_line.c` | console command parser, line assembly |
@@ -146,7 +187,7 @@ regeneration):
 
 - `TouchGFX/target/generated/STM32DMA.cpp/.hpp`: DMA2D version from TouchGFX 4.22 with its `paint`
   namespace removed (4.26 provides it).
-- `TouchGFXGeneratedHAL.cpp`: DMA2D IRQ enable/disable/priority, framebuffer 280x240.
+- `TouchGFXGeneratedHAL.cpp`: DMA2D IRQ enable/disable/priority, framebuffer 280x240, Paint includes kept.
 - `TouchGFXConfiguration.cpp`: HAL size 280x240; `touchgfx_test.touchgfx` resolution 280x240;
   generated GUI backgrounds were resized by hand.
 - `STM32L496XX_FLASH.ld`: `TouchGFX_Framebuffer` NOLOAD section (the build uses
