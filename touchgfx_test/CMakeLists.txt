@@ -47,6 +47,9 @@ add_subdirectory(cmake/stm32cubemx)
 # Add touchgfx generated sources and libraries
 add_subdirectory(cmake/touchgfx)
 
+# Pure application logic (standard library only; shared with the unit tests)
+add_subdirectory(App/logic)
+
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
@@ -56,10 +59,8 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     App/waveshare_driver/Src/waveshare_driver.c # ST7789V2 library, SPI2 + DMA + diagnostics
-    App/waveshare_driver/Src/ws169_geometry.c # hardware-independent display geometry
     Core/Src/ble_app.c          # BlueNRG-2 peripheral
     Core/Src/uart_commands.c    # LPUART1 command console
-    Core/Src/uart_line.c        # hardware-independent UART line assembly
     Core/Src/usb_logging.c      # USBX CDC-ACM diagnostics sink
     Core/Src/app_core.c         # shared AppState, LED/console owner, user button
     Core/Src/usb_cdc_log.c      # USB CDC log sink (inert until the USB device is enabled)
@@ -94,6 +95,7 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
+    app_logic
 
     # Add user defined libraries
 )
