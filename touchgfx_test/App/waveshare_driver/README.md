@@ -23,6 +23,5 @@ The driver contains the board's SPI2 and display-pin setup as well as the
 panel operations. CubeMX-generated files do not own this folder and will not
 overwrite it.
 
-Non-destructive geometry and boundary tests live under `App/Tests`. They are
-included in the existing `TEST` console command and do not access SPI or alter
-the display contents.
+The hardware-independent display geometry (`ws169_geometry`) lives in `App/logic/` and is covered
+by unit tests in `Tests/test_ws169_geometry.c` (run `scripts/unit-test.sh`).

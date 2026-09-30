@@ -169,7 +169,9 @@ Peripherals: SPI2 (LCD), SPI1 (BlueNRG-2), LPUART1 (console), DMA1, DMA2D, CRC, 
 | `Core/Src/dma2d.c` | DMA2D init for TouchGFX |
 | `Core/Src/app_core.c` | shared `AppState`, LED/console ownership, user button |
 | `Core/Src/ble_app.c` | BlueNRG-2 init, advertising, event dispatch, GATT service |
-| `Core/Src/uart_commands.c`, `uart_line.c` | console command parser, line assembly |
+| `Core/Src/uart_commands.c` | console command parser |
+| `App/logic/**` | pure, unit-tested logic (`uart_line`, `ws169_geometry`); standard library only |
+| `Tests/**` | unit tests (Unity) for `App/logic`; run `scripts/unit-test.sh` |
 | `Core/Src/usb_logging.c`, `usb_cdc_log.c` | log sink (LPUART1 + USB CDC ring buffer) |
 
 ## Changing the display pins or speed
@@ -226,7 +228,7 @@ then **Generate Code**. `Screen1` is built in code and is not touched by Designe
 
 **5. Build** with `cmake --build --preset Debug`.
 
-**App-owned (never regenerated):** `App/waveshare_driver/**`, `Core/Src/{ble_app,uart_commands,uart_line,usb_logging,usb_cdc_log,app_core}.c`, `Core/Inc/{app_state,app_core,usb_cdc_log,...}.h`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`. **Hooks in generated files** sit in USER CODE blocks: `app_threadx.c`, `stm32l4xx_it.c`, `ux_device_cdc_acm.c`, `app_azure_rtos_config.h`, `app_usbx_device.h`.
+**App-owned (never regenerated):** `App/waveshare_driver/**`, `App/logic/**`, `Core/Src/{ble_app,uart_commands,usb_logging,usb_cdc_log,app_core}.c`, `Core/Inc/{app_state,app_core,usb_cdc_log,...}.h`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`. **Hooks in generated files** sit in USER CODE blocks: `app_threadx.c`, `stm32l4xx_it.c`, `ux_device_cdc_acm.c`, `app_azure_rtos_config.h`, `app_usbx_device.h`.
 
 ## Known risks and gaps (as documented, not re-verified)
 

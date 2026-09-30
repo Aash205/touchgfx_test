@@ -40,6 +40,14 @@ them, or the next `.ioc` regeneration wipes your changes. These files are curren
 from lint whole (see `misra/exclude-paths.txt`); linting just their USER CODE regions is
 planned.
 
+## Application layers
+
+- `App/logic/`: pure C, standard library only, unit-tested (`scripts/unit-test.sh`). It must never
+  include a HAL, ThreadX, USBX, BlueNRG or TouchGFX header: the target gets no such include path,
+  so such an include fails to compile. Hardware values cross its API as plain integers and arrays.
+- Hardware glue (HAL / RTOS calls) calls into `logic/`; `logic/` never calls back into it.
+- `Tests/`: unit tests for `App/logic` only. No on-device tests, no mocks.
+
 ## MISRA
 
 - `.c`/`.h`: real MISRA C:2012 via Cppcheck (`misra.py`). Findings cite real rule numbers.
