@@ -156,7 +156,7 @@ fi
 # it in all three cases, or fail as a tool error.
 compile_db="$REPO_ROOT/compile_commands.json"
 compile_db_reason=""
-if [ ! -f "$compile_db" ]; then
+if [ ! -f "$compile_db" ] || [ ! -f "$REPO_ROOT/build/Debug/compile_commands.json" ]; then
     compile_db_reason="missing"
 elif ! python3 -c 'import json, sys; sys.exit(0 if json.load(open(sys.argv[1])) else 1)' \
         "$compile_db" 2>/dev/null; then
@@ -468,12 +468,15 @@ cpp_files=()
 collect_files cpp_files cpp hpp -- "${targets[@]}"
 
 if [ "${#cpp_files[@]}" -gt 0 ]; then
-    # -p "$REPO_ROOT" picks up the compile_commands.json published by
-    # scripts/gen_compile_db.sh (generated above when missing, empty or stale).
+    # -p points at the build directory's own compile_commands.json, NOT the
+    # project root: clang-tidy prefers a compile_flags.txt over a
+    # compile_commands.json in the same directory (verified), and the root
+    # holds the generated compile_flags.txt (CPU flags only, no project -I
+    # paths), which makes every project header "not found".
     fix_args=()
     [ "$FIX" -eq 1 ] && fix_args=(--fix)
     for f in "${cpp_files[@]}"; do
-        if ! clang-tidy --config-file="$CLANG_TIDY_CONFIG" -p "$REPO_ROOT" "${fix_args[@]}" "$f"; then
+        if ! clang-tidy --config-file="$CLANG_TIDY_CONFIG" -p "$REPO_ROOT/build/Debug" "${fix_args[@]}" "$f"; then
             status=1
         fi
     done

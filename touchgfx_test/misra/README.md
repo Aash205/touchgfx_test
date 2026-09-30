@@ -100,6 +100,8 @@ addon. Everything else (exclusions, demo self-test) stays the same.
   commonly assumed precedence. `gen_compile_commands.sh` deletes `compile_flags.txt` once it
   writes a real `compile_commands.json`, so this never comes up in normal use; it only
   matters if you're debugging why lint results don't seem to reflect the real project.
+  `lint.sh` sidesteps it for clang-tidy by passing `-p build/Debug` (a directory that never
+  holds a `compile_flags.txt`), so the C++ pass sees the real include paths.
 - CubeIDE's native `compile_commands.json` export sets `"directory"` to the project root, but
   every `-I` flag in `"command"` is relative and was written assuming cwd = the build-config
   dir (`Debug/`) one level below root — that's where the compiler actually ran from.
