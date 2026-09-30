@@ -23,6 +23,12 @@ addon. Everything else (exclusions, demo self-test) stays the same.
 
 ## Notes
 
+- **`scripts/lint.sh` needs CMake, Ninja and the ARM toolchain (`arm-none-eabi-gcc`).** The
+  MISRA pass reads the real `-I`/`-D` flags from `compile_commands.json` at the project root,
+  and `lint.sh` (re)generates it with `scripts/gen_compile_db.sh` (`cmake --preset Debug`, no
+  build) when it is missing, empty, or older than the CMake files. If generation fails it
+  exits 2 (tool error), never a silent include-blind run. This applies to every invocation,
+  including `lint.sh demo` and pre-commit on a fresh clone.
 - Cppcheck platform: `arm32-wchar_t4.xml` (bundled, cppcheck's own upstream ARM definition)
   — 32-bit int/long/pointer, **unsigned-by-default char** (real ARM EABI behavior, verified
   against arm-none-eabi-gcc's own `__CHAR_UNSIGNED__`/`__SIZEOF_WCHAR_T__` macros). Without
@@ -81,9 +87,9 @@ addon. Everything else (exclusions, demo self-test) stays the same.
   language server after this changes (Command Palette → `clangd: Restart language server`).
 - `compile_flags.txt` is generated, not shipped (`scripts/gen_compile_flags.sh`, called by
   `setup.sh`) — gitignored, since the correct paths depend on this exact machine's ARM
-  toolchain version/location. It's the fallback used before you've run
-  `gen_compile_commands.sh` against a real project (or for any file that isn't in that
-  project's build). If `arm-none-eabi-g++` is on PATH, it queries GCC directly for its real
+  toolchain version/location. It is used by clangd/clang-tidy for files that aren't in the
+  project's build database. `lint.sh` no longer falls back to it for the cppcheck MISRA pass
+  (that pass always uses `compile_commands.json`, see above). If `arm-none-eabi-g++` is on PATH, it queries GCC directly for its real
   system-include paths (the C++ standard library lives in a CPU/FPU-specific multilib
   subdirectory clang can't guess); if not found, you get CPU/target flags only and standard
   headers (`<cstdint>` etc.) won't resolve until either a standalone ARM toolchain is on

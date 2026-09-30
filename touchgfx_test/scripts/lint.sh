@@ -150,10 +150,24 @@ if [ "${1:-}" = "--cubeide" ]; then
     shift
 fi
 
-# A missing compile database makes cppcheck blind to every project include path, which
-# floods the report with false 8.4 / 17.3 findings. Generate it, or fail as a tool error.
-if [ ! -f "$REPO_ROOT/compile_commands.json" ]; then
-    echo "compile_commands.json missing -- generating it (scripts/gen_compile_db.sh)..." >&2
+# A missing or empty compile database makes cppcheck blind to every project include path,
+# which floods the report with false 8.4 / 17.3 findings; a stale one (older than the CMake
+# files that define the include paths and defines) silently lints the wrong flags. Regenerate
+# it in all three cases, or fail as a tool error.
+compile_db="$REPO_ROOT/compile_commands.json"
+compile_db_reason=""
+if [ ! -f "$compile_db" ]; then
+    compile_db_reason="missing"
+elif ! python3 -c 'import json, sys; sys.exit(0 if json.load(open(sys.argv[1])) else 1)' \
+        "$compile_db" 2>/dev/null; then
+    compile_db_reason="empty or unreadable"
+elif [ -n "$(find "$REPO_ROOT/CMakeLists.txt" "$REPO_ROOT/CMakePresets.json" "$REPO_ROOT/cmake" \
+        -type f \( -name 'CMakeLists.txt' -o -name 'CMakePresets.json' -o -name '*.cmake' \) \
+        -newer "$compile_db" -print -quit)" ]; then
+    compile_db_reason="older than the CMake files"
+fi
+if [ -n "$compile_db_reason" ]; then
+    echo "compile_commands.json $compile_db_reason -- regenerating it (scripts/gen_compile_db.sh)..." >&2
     if ! bash "$SCRIPT_DIR/gen_compile_db.sh" >&2; then
         echo "ERROR: could not generate compile_commands.json; lint results would be unreliable." >&2
         exit 2
@@ -293,9 +307,8 @@ if [ "${#c_files[@]}" -gt 0 ]; then
     # byte-for-byte identical to the database's own "file" entry -- a
     # project-loader quirk this toolchain has no visibility into and can't
     # fix from the outside. So: extract the real -I/-D flags ourselves
-    # (same technique as the compile_flags.txt fallback below) from one
-    # representative compile_commands.json entry and apply them to every
-    # target file in one plain invocation, same as compile_flags.txt.
+    # from one representative compile_commands.json entry and apply them to
+    # every target file in one plain invocation.
     # STM32CubeIDE projects use one global include/define set across all
     # project files (verified against a real export), so one entry's flags
     # generalize fine -- this sidesteps --project/--file-filter entirely
@@ -307,8 +320,7 @@ if [ "${#c_files[@]}" -gt 0 ]; then
         # flag ends up with a trailing '\r' that cppcheck receives as part
         # of the path (e.g. '-I.../Core/Inc\r'), which then reports as
         # "Couldn't find path" because the directory literally doesn't have
-        # a CR-suffixed name. Same CRLF hazard applies to compile_flags.txt
-        # further down (checked into the repo on Windows = CRLF endings).
+        # a CR-suffixed name.
         # Strip '\r' explicitly after every read rather than relying on
         # Python/git line-ending behavior we don't control here.
         while IFS= read -r flag; do
@@ -381,27 +393,6 @@ while i < len(tokens):
     i += 1
 PY
         )
-    elif [ -f "$REPO_ROOT/compile_flags.txt" ]; then
-        # compile_flags.txt fallback: cppcheck has no native concept of this
-        # file (unlike clang-tidy/clangd, which read it via -p). It also
-        # only tolerates -I<dir> and -D<ID> -- anything else in there
-        # (--target=, -mcpu=, -mthumb, ...) is a hard "unrecognized command
-        # line option" error for cppcheck, verified directly. So pull out
-        # just the include paths (-isystem <dir> pairs count as -I too;
-        # cppcheck doesn't distinguish system vs quote includes) and drop
-        # everything else rather than forwarding the file as-is.
-        prev_flag=""
-        while IFS= read -r flag; do
-            flag="${flag%$'\r'}"
-            case "$prev_flag" in
-                -isystem) extra_include_args+=("-I$flag") ;;
-            esac
-            case "$flag" in
-                -I*) extra_include_args+=("$flag") ;;
-                -D*) extra_include_args+=("$flag") ;;
-            esac
-            prev_flag="$flag"
-        done < "$REPO_ROOT/compile_flags.txt"
     fi
 
     # exclude-paths.txt only keeps a path out of the target-file list handed
@@ -456,9 +447,8 @@ PY
     # resolve_addon_python above), or misra.py's own "[misra-config]" tag
     # (emitted per-identifier as "Because of missing configuration, misra
     # checking is incomplete" whenever a project macro/type can't be
-    # resolved -- e.g. no real compile_commands.json yet, only the
-    # compile_flags.txt CPU/target-flags fallback, which never carries
-    # project -I paths). Findings from a run missing macro/type info aren't
+    # resolved -- e.g. a compile_commands.json without the project's -I
+    # paths or defines). Findings from a run missing macro/type info aren't
     # trustworthy (real violations can be silently missed, not just
     # over-reported), so this counts as the tool being unconfigured too,
     # same as the other patterns -- not a real MISRA finding to fix in code.
@@ -478,9 +468,8 @@ cpp_files=()
 collect_files cpp_files cpp hpp -- "${targets[@]}"
 
 if [ "${#cpp_files[@]}" -gt 0 ]; then
-    # -p "$REPO_ROOT" picks up compile_commands.json when a real firmware
-    # project has generated one, else falls back to compile_flags.txt
-    # (ARM/Cortex-M4 target) which this repo always ships.
+    # -p "$REPO_ROOT" picks up the compile_commands.json published by
+    # scripts/gen_compile_db.sh (generated above when missing, empty or stale).
     fix_args=()
     [ "$FIX" -eq 1 ] && fix_args=(--fix)
     for f in "${cpp_files[@]}"; do
