@@ -19,6 +19,7 @@ add_library(app_logic STATIC
     ui_format.c
     ws169_flush.c
     ws169_geometry.c
+    ws169_init.c
     ws169_status.c
     ws169_wire.c
 )
