@@ -1,7 +1,7 @@
 #ifndef RING_H
 #define RING_H
 
-/* clang-format off: keep the rules below as written, clang-format would reflow them. */
+/* clang-format off */
 /*
  * Byte ring buffer with free-running head and tail counters.
  *
