@@ -222,7 +222,6 @@ void test_help_lines(void)
 
 /*
  * What the original console sent for one line, concatenated, plus the LED call it made. The
- *
  * original code, with the HAL calls replaced by recording and the responses collected.
  */
 typedef struct
@@ -415,8 +414,10 @@ void test_matches_the_original_console_over_random_lines(void)
     static const char* const words[] = {"LED",   "STATUS", "BLE", "HELP", "ON", "OFF", "FAST",
                                         "BLINK", "TOGGLE", " ",   "0",    "1",  "2",   "3",
                                         "9",     "x",      "led", "\t",   "S",  "O",   "N"};
+    static const char* const led_digits[] = {"0", "1", "2", "3"};
     const unsigned word_count = (unsigned)(sizeof(words) / sizeof(words[0]));
     unsigned state = 2024U;
+    unsigned valid_led_commands = 0U;
 
     for (unsigned step = 0U; step < 20000U; step++)
     {
@@ -432,6 +433,10 @@ void test_matches_the_original_console_over_random_lines(void)
         if ((next_random(&state) % 3U) != 0U)
         {
             (void)strcat(line, "LED");
+            if ((next_random(&state) % 4U) != 0U)
+            {
+                (void)strcat(line, led_digits[next_random(&state) % 4U]);
+            }
         }
         for (unsigned t = 0U; t < tokens; t++)
         {
@@ -450,8 +455,12 @@ void test_matches_the_original_console_over_random_lines(void)
         if (expected.led_call >= 0)
         {
             TEST_ASSERT_EQUAL_INT_MESSAGE(expected.led_action, actual.led_action, line);
+            valid_led_commands++;
         }
     }
+
+    /* The comparison is only worth something if many of the lines were real LED commands. */
+    TEST_ASSERT_GREATER_THAN_UINT(2000U, valid_led_commands);
 }
 
 void test_the_status_reply_matches_the_original_for_every_state_combination(void)
