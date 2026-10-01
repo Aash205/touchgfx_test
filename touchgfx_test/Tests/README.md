@@ -25,5 +25,6 @@ with `ctest`. It exits non-zero if any test fails. Framework: Unity v2.7.0 (MIT)
 
 | Module | Test file | Cases |
 |---|---|---|
+| `ring` | `test_ring.c` | 14 |
 | `uart_line` | `test_uart_line.c` | 7 |
 | `ws169_geometry` | `test_ws169_geometry.c` | 23 |

@@ -1,6 +1,5 @@
 # Lint baseline: finding counts per rule from scripts/lint_counts.sh
-# Recorded after step 2 (App/logic created). The drop from 181 to 142 came from Tests/ leaving
-# the MISRA scope (misra/lint-exclude-paths.txt), not from fixes. Compare, do not edit by hand.
+# Recorded after step 3 (ring extracted into App/logic). Compare, do not edit by hand.
      25 misra-c2012-17.7
      13 misra-c2012-15.5
      11 misra-c2012-8.9
