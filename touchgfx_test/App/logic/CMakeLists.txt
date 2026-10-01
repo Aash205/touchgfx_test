@@ -18,5 +18,6 @@ add_library(app_logic STATIC
     uart_line.c
     ui_format.c
     ws169_geometry.c
+    ws169_status.c
 )
 target_include_directories(app_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
