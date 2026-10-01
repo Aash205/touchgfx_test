@@ -170,9 +170,9 @@ Peripherals: SPI2 (LCD), SPI1 (BlueNRG-2), LPUART1 (console), DMA1, DMA2D, CRC, 
 | `Core/Src/app_core.c` | shared `AppState`, LED/console ownership, user button |
 | `Core/Src/ble_app.c` | BlueNRG-2 init, advertising, event dispatch, GATT service |
 | `Core/Src/uart_commands.c` | console command parser |
-| `App/logic/**` | pure, unit-tested logic (`ring`, `uart_line`, `ws169_geometry`); standard library only |
+| `App/logic/**` | pure, unit-tested logic (`log_format`, `ring`, `timeouts`, `uart_line`, `ws169_geometry`); standard library only |
 | `Tests/**` | unit tests (Unity) for `App/logic`; run `scripts/unit-test.sh` |
-| `Core/Src/usb_logging.c`, `usb_cdc_log.c` | log sink (LPUART1 + USB CDC, buffered by `App/logic/ring`) |
+| `Core/Src/usb_logging.c`, `usb_cdc_log.c` | log sink (LPUART1 + USB CDC, buffered by `App/logic/ring`, formatted by `App/logic/log_format`) |
 
 ## Changing the display pins or speed
 

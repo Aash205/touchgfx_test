@@ -1,14 +1,14 @@
 # Lint baseline: finding counts per rule from scripts/lint_counts.sh
-# Recorded after step 3 (ring extracted into App/logic). Compare, do not edit by hand.
+# Recorded after step 4 (log_format and timeouts extracted into App/logic). Compare, do not edit by hand.
      25 misra-c2012-17.7
      13 misra-c2012-15.5
      11 misra-c2012-8.9
-     11 misra-c2012-21.6
+     10 misra-c2012-21.6
       9 unusedFunction
       9 misra-c2012-8.7
-      8 variableScope
       7 misra-c2012-15.6
       7 misra-c2012-11.4
+      6 variableScope
       5 misra-c2012-7.4
       4 misra-c2012-12.1
       4 misra-c2012-11.8
@@ -28,4 +28,4 @@
       1 misra-c2012-10.8
       1 misra-c2012-10.3
       1 constParameterPointer
-142 total
+139 total
