@@ -19,5 +19,6 @@ add_library(app_logic STATIC
     ui_format.c
     ws169_geometry.c
     ws169_status.c
+    ws169_wire.c
 )
 target_include_directories(app_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
