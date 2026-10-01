@@ -13,6 +13,9 @@
 #include "usb_logging.h"
 #include "app_state.h"
 #include "ble_codec.h"
+#include "ble_fsm.h"
+#include "ble_sync.h"
+#include "table_dispatch.h"
 #include "hci.h"
 #include "bluenrg1_hci_le.h"
 #include "bluenrg1_hal_aci.h"
@@ -23,6 +26,7 @@
 #include "bluenrg1_events.h"
 #include "bluenrg1_types.h"
 #include "hci_const.h"
+#include <stddef.h>
 #include <string.h>
 
 /* Private variables ---------------------------------------------------------*/
@@ -49,11 +53,21 @@ static uint8_t  last_led_mask = UINT8_MAX; /* force first sync */
 #define BLE_ADV_INTERVAL_MIN_UNITS  0x00A0U
 #define BLE_ADV_INTERVAL_MAX_UNITS  0x0140U
 
-/* Remain discoverable for two minutes, then stop until advertising is restarted. */
-#define BLE_ADV_DURATION_MS         120000UL
+/* Advertising stops after BLE_FSM_ADVERTISING_LIMIT_MS (two minutes) until it is restarted. */
 #define BLE_STATUS_LENGTH           BLE_CODEC_STATUS_LENGTH
 _Static_assert(((uint32_t)AD_TYPE_COMPLETE_LOCAL_NAME) == BLE_CODEC_AD_TYPE_COMPLETE_LOCAL_NAME,
                "ble_codec AD type must match the BlueNRG header");
+_Static_assert(((int)BLE_APP_STATUS_IDLE == (int)BLE_FSM_IDLE) &&
+                 ((int)BLE_APP_STATUS_INITIALIZING == (int)BLE_FSM_INITIALIZING) &&
+                 ((int)BLE_APP_STATUS_INITIALIZED == (int)BLE_FSM_INITIALIZED) &&
+                 ((int)BLE_APP_STATUS_ADVERTISING == (int)BLE_FSM_ADVERTISING) &&
+                 ((int)BLE_APP_STATUS_CONNECTED == (int)BLE_FSM_CONNECTED) &&
+                 ((int)BLE_APP_STATUS_PAIRED == (int)BLE_FSM_PAIRED) &&
+                 ((int)BLE_APP_STATUS_ERROR == (int)BLE_FSM_ERROR),
+               "ble_fsm states must match BLE_StatusTypeDef");
+_Static_assert((((uint32_t)EVT_LE_META_EVENT) == TABLE_DISPATCH_EVT_LE_META) &&
+                 (((uint32_t)EVT_VENDOR) == TABLE_DISPATCH_EVT_VENDOR),
+               "table_dispatch event codes must match the BlueNRG header");
 
 static uint32_t advertising_start_tick;
 
@@ -63,6 +77,9 @@ static BLE_StatusTypeDef ble_set_discoverable(void);
 static tBleStatus ble_add_demo_service(void);
 static uint8_t led_mask_get(void);
 static void ble_sync(void);
+static void ble_apply(BleFsm_Event_t event);
+static void ble_dispatch(const hci_events_table_type *table, size_t count, uint16_t code,
+                         uint8_t *data);
 
 /**
  * @brief Initialize the BlueNRG-2: reset, GATT/GAP init, device name.
@@ -77,7 +94,7 @@ BLE_StatusTypeDef BLE_App_Init(void)
   uint16_t gap_name_char_handle;
   uint16_t gap_appearance_char_handle;
 
-  ble_app_handle.status = BLE_APP_STATUS_INITIALIZING;
+  ble_apply(BLE_FSM_EVENT_INIT_STARTED);
 
   hci_init(ble_user_notify, NULL);
   /* Allow the BlueNRG-M2SP DTM firmware to finish booting after hardware reset. */
@@ -125,13 +142,13 @@ BLE_StatusTypeDef BLE_App_Init(void)
 
   if (ret == BLE_STATUS_SUCCESS)
   {
-    ble_app_handle.status = BLE_APP_STATUS_INITIALIZED;
+    ble_apply(BLE_FSM_EVENT_INIT_SUCCEEDED);
     result = BLE_APP_STATUS_INITIALIZED;
   }
   else
   {
     (void)USB_Logging_Printf(LOG_LEVEL_ERROR, "BLE init failed at %s: 0x%02X", stage, ret);
-    ble_app_handle.status = BLE_APP_STATUS_ERROR;
+    ble_apply(BLE_FSM_EVENT_INIT_FAILED);
   }
 
   return result;
@@ -144,7 +161,7 @@ BLE_StatusTypeDef BLE_App_StartAdvertising(const char *device_name)
 {
   BLE_StatusTypeDef result = BLE_APP_STATUS_ERROR;
 
-  if ((device_name != NULL) && (ble_app_handle.status != BLE_APP_STATUS_ERROR))
+  if ((device_name != NULL) && BleFsm_MayAdvertise((BleFsm_State_t)ble_app_handle.status))
   {
     (void)BleCodec_CopyName(ble_app_handle.device_name, sizeof(ble_app_handle.device_name),
                             device_name);
@@ -164,12 +181,12 @@ BLE_StatusTypeDef BLE_App_StopAdvertising(void)
 
   if (aci_gap_set_non_discoverable() != BLE_STATUS_SUCCESS)
   {
-    ble_app_handle.status = BLE_APP_STATUS_ERROR;
+    ble_apply(BLE_FSM_EVENT_STOP_FAILED);
     result = BLE_APP_STATUS_ERROR;
   }
   else
   {
-    ble_app_handle.status = BLE_APP_STATUS_INITIALIZED;
+    ble_apply(BLE_FSM_EVENT_STOP_SUCCEEDED);
   }
 
   return result;
@@ -202,8 +219,7 @@ void BLE_App_Process(void)
   now = HAL_GetTick();
   ble_app_handle.last_update_time = now;
 
-  if ((ble_app_handle.status == BLE_APP_STATUS_ADVERTISING) &&
-      ((uint32_t)(now - advertising_start_tick) >= BLE_ADV_DURATION_MS)) {
+  if (BleFsm_AdvertisingExpired((BleFsm_State_t)ble_app_handle.status, advertising_start_tick, now)) {
     if (BLE_App_StopAdvertising() == BLE_APP_STATUS_INITIALIZED)
     {
       (void)USB_Logging_Printf(LOG_LEVEL_INFO, "BLE advertising stopped after 120 seconds");
@@ -283,14 +299,22 @@ static tBleStatus ble_add_demo_service(void)
   return ret;
 }
 
+/* Move the status to what ble_fsm says follows the event. */
+static void ble_apply(BleFsm_Event_t event)
+{
+  /* cppcheck-suppress [misra-c2012-10.5] -- BLE_StatusTypeDef and BleFsm_State_t have the same values (checked by the _Static_assert above) */
+  ble_app_handle.status =
+      (BLE_StatusTypeDef)BleFsm_Next((BleFsm_State_t)ble_app_handle.status, event);
+}
+
 /* Push LED changes to the LED characteristic immediately, status (notify) once a second. */
 static void ble_sync(void)
 {
-  if ((demo_service_handle != 0U) && (ble_app_handle.status == BLE_APP_STATUS_CONNECTED))
+  if (BleSync_Active((BleFsm_State_t)ble_app_handle.status, demo_service_handle != 0U))
   {
     static uint32_t last_status_tick;
     uint8_t mask = led_mask_get();
-    if (mask != last_led_mask)
+    if (BleSync_LedDue(mask, last_led_mask))
     {
       if (aci_gatt_update_char_value(demo_service_handle, led_char_handle, 0, 1, &mask) == BLE_STATUS_SUCCESS)
       {
@@ -299,7 +323,7 @@ static void ble_sync(void)
     }
 
     uint32_t now = HAL_GetTick();
-    if ((now - last_status_tick) >= 1000U)
+    if (BleSync_StatusDue(now, last_status_tick))
     {
       AppState st;
       uint8_t status[BLE_STATUS_LENGTH];
@@ -332,16 +356,29 @@ static BLE_StatusTypeDef ble_set_discoverable(void)
   if (ret != BLE_STATUS_SUCCESS)
   {
     (void)USB_Logging_Printf(LOG_LEVEL_ERROR, "BLE advertise failed: 0x%02X", ret);
-    ble_app_handle.status = BLE_APP_STATUS_ERROR;
+    ble_apply(BLE_FSM_EVENT_ADVERTISE_FAILED);
     result = BLE_APP_STATUS_ERROR;
   }
   else
   {
-    ble_app_handle.status = BLE_APP_STATUS_ADVERTISING;
+    ble_apply(BLE_FSM_EVENT_ADVERTISE_SUCCEEDED);
     advertising_start_tick = HAL_GetTick();
   }
 
   return result;
+}
+
+/* Call the handler registered for `code` in one of the middleware's event tables, if any. */
+static void ble_dispatch(const hci_events_table_type *table, size_t count, uint16_t code,
+                         uint8_t *data)
+{
+  /* cppcheck-suppress [misra-c2012-11.3] -- the table is searched as bytes by the pure TableDispatch_Find */
+  const size_t index = TableDispatch_Find((const uint8_t *)table, sizeof(table[0]), count,
+                                          offsetof(hci_events_table_type, evt_code), code);
+  if (index != TABLE_DISPATCH_NOT_FOUND)
+  {
+    (void)table[index].process(data);
+  }
 }
 
 /* Called for each queued HCI packet: route events to the middleware's handler tables
@@ -356,47 +393,29 @@ static void ble_user_notify(void *pData)
     {
       /* cppcheck-suppress [misra-c2012-11.3] -- opaque HCI packet buffer is decoded into the middleware type */
       hci_event_pckt *event_pckt = (hci_event_pckt *)hci_pckt->data;
+      const TableDispatch_Route_t route = TableDispatch_Route(event_pckt->evt);
 
-      if (event_pckt->evt == (uint8_t)EVT_LE_META_EVENT)
+      if (route == TABLE_DISPATCH_LE_META)
       {
         /* cppcheck-suppress [misra-c2012-11.3] -- opaque HCI packet buffer is decoded into the middleware type */
         evt_le_meta_event *meta = (evt_le_meta_event *)event_pckt->data;
-        uint32_t count = sizeof(hci_le_meta_events_table) / sizeof(hci_le_meta_events_table[0]);
-        for (uint32_t i = 0U; i < count; i++)
-        {
-          if (hci_le_meta_events_table[i].evt_code == meta->subevent)
-          {
-            hci_le_meta_events_table[i].process(meta->data);
-            break;
-          }
-        }
+        ble_dispatch(hci_le_meta_events_table,
+                     sizeof(hci_le_meta_events_table) / sizeof(hci_le_meta_events_table[0]),
+                     meta->subevent, meta->data);
       }
-      else if (event_pckt->evt == (uint8_t)EVT_VENDOR)
+      else if (route == TABLE_DISPATCH_VENDOR)
       {
         /* cppcheck-suppress [misra-c2012-11.3] -- opaque HCI packet buffer is decoded into the middleware type */
         evt_blue_aci *blue = (evt_blue_aci *)event_pckt->data;
-        uint32_t count = sizeof(hci_vendor_specific_events_table) /
-                         sizeof(hci_vendor_specific_events_table[0]);
-        for (uint32_t i = 0U; i < count; i++)
-        {
-          if (hci_vendor_specific_events_table[i].evt_code == blue->ecode)
-          {
-            hci_vendor_specific_events_table[i].process(blue->data);
-            break;
-          }
-        }
+        ble_dispatch(hci_vendor_specific_events_table,
+                     sizeof(hci_vendor_specific_events_table) /
+                         sizeof(hci_vendor_specific_events_table[0]),
+                     blue->ecode, blue->data);
       }
       else
       {
-        uint32_t count = sizeof(hci_events_table) / sizeof(hci_events_table[0]);
-        for (uint32_t i = 0U; i < count; i++)
-        {
-          if (hci_events_table[i].evt_code == event_pckt->evt)
-          {
-            hci_events_table[i].process(event_pckt->data);
-            break;
-          }
-        }
+        ble_dispatch(hci_events_table, sizeof(hci_events_table) / sizeof(hci_events_table[0]),
+                     event_pckt->evt, event_pckt->data);
       }
     }
   }
@@ -414,9 +433,12 @@ void hci_le_connection_complete_event(uint8_t Status, uint16_t Connection_Handle
 
   if (Status == BLE_STATUS_SUCCESS) {
     ble_app_handle.connection_handle = Connection_Handle;
-    ble_app_handle.status = BLE_APP_STATUS_CONNECTED;
+    ble_apply(BLE_FSM_EVENT_CONNECT_SUCCEEDED);
     last_led_mask = UINT8_MAX;
     (void)USB_Logging_Printf(LOG_LEVEL_INFO, "BLE connected (handle 0x%04X)", Connection_Handle);
+  }
+  else {
+    ble_apply(BLE_FSM_EVENT_CONNECT_FAILED);
   }
 }
 
