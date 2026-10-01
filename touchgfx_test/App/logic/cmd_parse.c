@@ -1,82 +1,10 @@
 #include "cmd_parse.h"
 
+#include "text_writer.h"
+
 #include <string.h>
 
 #define HELP_LINE_COUNT 5U
-
-/* Bounded writer: stores at most `limit` characters but keeps counting every offered one. */
-typedef struct
-{
-    char* out;
-    size_t limit;
-    size_t length;
-} TextWriter_t;
-
-static void writer_put_char(TextWriter_t* writer, char c)
-{
-    if (writer->length < writer->limit)
-    {
-        writer->out[writer->length] = c;
-    }
-    writer->length++;
-}
-
-static void writer_put_text(TextWriter_t* writer, const char* text)
-{
-    size_t i = 0U;
-
-    while (text[i] != '\0')
-    {
-        writer_put_char(writer, text[i]);
-        i++;
-    }
-}
-
-static void writer_put_number(TextWriter_t* writer, unsigned value)
-{
-    char digits[10];
-    size_t count = 0U;
-    unsigned rest = value;
-
-    do
-    {
-        digits[count] = (char)('0' + (rest % 10U));
-        count++;
-        rest /= 10U;
-    } while (rest != 0U);
-
-    while (count > 0U)
-    {
-        count--;
-        writer_put_char(writer, digits[count]);
-    }
-}
-
-/* Start a writer over out, or report that there is nothing to write to. */
-static bool begin(TextWriter_t* writer, char* out, size_t capacity)
-{
-    bool usable = false;
-
-    if ((out != NULL) && (capacity != 0U))
-    {
-        writer->out = out;
-        writer->limit = capacity - 1U;
-        writer->length = 0U;
-        usable = true;
-    }
-
-    return usable;
-}
-
-/* Terminate the output and return how many characters were stored. */
-static size_t finish(const TextWriter_t* writer)
-{
-    const size_t stored = (writer->length < writer->limit) ? writer->length : writer->limit;
-
-    writer->out[stored] = '\0';
-
-    return stored;
-}
 
 /* The LED number for a digit character: true when c is '0'..'9' and below led_count. */
 static bool led_number(char c, uint8_t led_count, uint8_t* index)
@@ -177,7 +105,7 @@ size_t Cmd_FormatLedReply(char* out, size_t capacity, uint8_t led_index, LED_Sta
     TextWriter_t writer;
     size_t stored = 0U;
 
-    if (begin(&writer, out, capacity))
+    if (TextWriter_Begin(&writer, out, capacity))
     {
         const char* text = "UNKNOWN";
 
@@ -202,12 +130,12 @@ size_t Cmd_FormatLedReply(char* out, size_t capacity, uint8_t led_index, LED_Sta
             break;
         }
 
-        writer_put_text(&writer, "LED");
-        writer_put_number(&writer, led_index);
-        writer_put_text(&writer, ": ");
-        writer_put_text(&writer, text);
-        writer_put_text(&writer, "\r\n");
-        stored = finish(&writer);
+        TextWriter_PutText(&writer, "LED");
+        TextWriter_PutNumber(&writer, led_index, 1U);
+        TextWriter_PutText(&writer, ": ");
+        TextWriter_PutText(&writer, text);
+        TextWriter_PutText(&writer, "\r\n");
+        stored = TextWriter_Finish(&writer);
     }
 
     return stored;
@@ -218,9 +146,9 @@ size_t Cmd_FormatStatus(char* out, size_t capacity, const LED_StateTypeDef* stat
     TextWriter_t writer;
     size_t stored = 0U;
 
-    if (begin(&writer, out, capacity))
+    if (TextWriter_Begin(&writer, out, capacity))
     {
-        writer_put_text(&writer, "=== Status ===\r\n");
+        TextWriter_PutText(&writer, "=== Status ===\r\n");
 
         for (uint8_t i = 0U; (states != NULL) && (i < count); i++)
         {
@@ -247,13 +175,13 @@ size_t Cmd_FormatStatus(char* out, size_t capacity, const LED_StateTypeDef* stat
                 break;
             }
 
-            writer_put_text(&writer, "LED");
-            writer_put_number(&writer, i);
-            writer_put_text(&writer, ": ");
-            writer_put_text(&writer, text);
-            writer_put_text(&writer, "\r\n");
+            TextWriter_PutText(&writer, "LED");
+            TextWriter_PutNumber(&writer, i, 1U);
+            TextWriter_PutText(&writer, ": ");
+            TextWriter_PutText(&writer, text);
+            TextWriter_PutText(&writer, "\r\n");
         }
-        stored = finish(&writer);
+        stored = TextWriter_Finish(&writer);
     }
 
     return stored;
@@ -264,12 +192,12 @@ size_t Cmd_FormatBleStatus(char* out, size_t capacity, unsigned status)
     TextWriter_t writer;
     size_t stored = 0U;
 
-    if (begin(&writer, out, capacity))
+    if (TextWriter_Begin(&writer, out, capacity))
     {
-        writer_put_text(&writer, "BLE status: ");
-        writer_put_number(&writer, status);
-        writer_put_text(&writer, "\r\n");
-        stored = finish(&writer);
+        TextWriter_PutText(&writer, "BLE status: ");
+        TextWriter_PutNumber(&writer, status, 1U);
+        TextWriter_PutText(&writer, "\r\n");
+        stored = TextWriter_Finish(&writer);
     }
 
     return stored;
