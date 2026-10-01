@@ -1,6 +1,11 @@
 #ifndef RING_H
 #define RING_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /* clang-format off */
 /*
  * Byte ring buffer with free-running head and tail counters.
@@ -32,5 +37,9 @@ unsigned Ring_Pop(Ring_t* ring, unsigned char* out, unsigned max);
 
 /* Number of bytes currently stored. */
 unsigned Ring_Count(const Ring_t* ring);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RING_H */

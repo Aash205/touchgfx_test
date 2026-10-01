@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /* clang-format off */
 /*
  * Convert a duration in milliseconds to RTOS ticks, rounding up so a non-zero duration never
@@ -19,5 +24,9 @@ uint32_t Timeout_MsToTicks(uint32_t ms, uint32_t tick_hz);
  * elapsed time is below 2^32.
  */
 bool Timeout_Elapsed(uint32_t start, uint32_t now, uint32_t limit);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TIMEOUTS_H */

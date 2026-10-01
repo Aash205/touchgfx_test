@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #define WS169_PORTRAIT_WIDTH 240U
 #define WS169_PORTRAIT_HEIGHT 280U
 #define WS169_LANDSCAPE_WIDTH 280U
@@ -42,5 +47,9 @@ WS169_Status_t WS169_TranslateWindow(WS169_Rotation_t rotation, uint16_t x1, uin
                                      uint16_t x2, uint16_t y2, WS169_Window_t* translated);
 WS169_Status_t WS169_GetGeometry(WS169_Rotation_t rotation, uint16_t* width, uint16_t* height,
                                  uint8_t* madctl);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

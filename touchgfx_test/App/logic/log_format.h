@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 typedef enum
 {
     LOG_LEVEL_DEBUG = 0,
@@ -31,5 +36,9 @@ bool LogFormat_ShouldLog(LogLevelTypeDef level, LogLevelTypeDef minimum);
 /* clang-format on */
 size_t LogFormat_Line(char* out, size_t capacity, LogLevelTypeDef level, uint32_t ms,
                       const char* message);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LOG_FORMAT_H */

@@ -8,3 +8,4 @@ AllowShortFunctionsOnASingleLine: None
 SpaceBeforeParens: ControlStatements
 PointerAlignment: Left
 LineEnding: CRLF
+IndentExternBlock: NoIndent
