@@ -3,6 +3,7 @@
 # one fails to compile in both the firmware build and the unit-test build.
 add_library(app_logic STATIC
     ble_codec.c
+    ble_fsm.c
     change_detect.c
     cmd_parse.c
     counters.c
