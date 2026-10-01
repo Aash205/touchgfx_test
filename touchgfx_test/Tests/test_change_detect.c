@@ -141,6 +141,39 @@ void test_null_arguments_return_false_and_change_nothing(void)
     TEST_ASSERT_EQUAL_UINT8(0U, last[0]);
 }
 
+void test_padding_bytes_take_part_in_the_comparison_unless_the_snapshot_is_zeroed(void)
+{
+    ChangeDetect_t d = {0U, false};
+    Snapshot_t last;
+    Snapshot_t now;
+
+    memset(&last, 0, sizeof(last));
+    memset(&now, 0, sizeof(now));
+    now.a = 1U;
+    now.b = 2U;
+    now.c = 3U;
+    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
+
+    /* the same field values, but stale bytes in the padding: seen as a change */
+    memset(&now, 0xAA, sizeof(now));
+    now.a = 1U;
+    now.b = 2U;
+    now.c = 3U;
+    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
+
+    /* zeroed first: one more update to replace the stored padding, then stable */
+    memset(&now, 0, sizeof(now));
+    now.a = 1U;
+    now.b = 2U;
+    now.c = 3U;
+    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
+    memset(&now, 0, sizeof(now));
+    now.a = 1U;
+    now.b = 2U;
+    now.c = 3U;
+    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
+}
+
 /* ---- differential test against the original Model::tick ------------------------------------ */
 
 typedef struct
@@ -239,6 +272,7 @@ int main(void)
     RUN_TEST(test_a_change_in_the_last_byte_is_seen);
     RUN_TEST(test_only_the_given_size_is_compared_and_stored);
     RUN_TEST(test_null_arguments_return_false_and_change_nothing);
+    RUN_TEST(test_padding_bytes_take_part_in_the_comparison_unless_the_snapshot_is_zeroed);
     RUN_TEST(test_matches_the_original_model_tick_over_random_states);
     return UNITY_END();
 }

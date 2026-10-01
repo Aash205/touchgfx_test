@@ -15,7 +15,10 @@ void Model::tick()
         return;
     }
 
+    // Zero first: the snapshot is compared byte by byte, padding included, and AppState_Get
+    // fills the fields only, so stale stack bytes in the padding could look like a change.
     AppState now;
+    memset(&now, 0, sizeof(now));
     AppState_Get(&now);
 
     if (ChangeDetect_Update(&detect, reinterpret_cast<uint8_t*>(&last),
