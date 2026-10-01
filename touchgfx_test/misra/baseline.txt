@@ -1,5 +1,5 @@
 # Lint baseline: finding counts per rule from scripts/lint_counts.sh
-# Recorded after step 4 (log_format and timeouts extracted into App/logic). Compare, do not edit by hand.
+# Recorded after step 5 (ble_codec extracted into App/logic). Compare, do not edit by hand.
      25 misra-c2012-17.7
      13 misra-c2012-15.5
      11 misra-c2012-8.9

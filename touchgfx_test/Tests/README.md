@@ -19,12 +19,13 @@ with `ctest`. It exits non-zero if any test fails. Framework: Unity v2.7.0 (MIT)
 2. Write `Tests/test_<module>.c` with `setUp` / `tearDown`, one `void test_<behaviour>(void)` per
    behaviour, and a `main` that calls `UNITY_BEGIN()`, `RUN_TEST(...)` per test, `UNITY_END()`.
 3. Add `add_unit_test(test_<module>)` to `Tests/CMakeLists.txt`.
-4. Format the file once with `clang-format -i` (`Tests/` is excluded from `format.sh` and lint).
+4. Format the file once with `clang-format -i` (`Tests/` is format-checked but not MISRA-linted).
 
 ## Current modules
 
 | Module | Test file | Cases |
 |---|---|---|
+| `ble_codec` | `test_ble_codec.c` | 31 |
 | `log_format` | `test_log_format.c` | 16 |
 | `ring` | `test_ring.c` | 14 |
 | `timeouts` | `test_timeouts.c` | 12 |
