@@ -2,26 +2,25 @@
 #include <gui/model/ModelListener.hpp>
 #include <string.h>
 
-Model::Model() : modelListener(0), tickCount(0), haveLast(false)
+Model::Model() : modelListener(0)
 {
+    memset(&detect, 0, sizeof(detect));
     memset(&last, 0, sizeof(last));
 }
 
 void Model::tick()
 {
-    if (++tickCount < POLL_TICKS)
+    if (!ChangeDetect_PollDue(&detect, POLL_TICKS))
     {
         return;
     }
-    tickCount = 0;
 
     AppState now;
     AppState_Get(&now);
 
-    if (!haveLast || memcmp(&now, &last, sizeof(now)) != 0)
+    if (ChangeDetect_Update(&detect, reinterpret_cast<uint8_t*>(&last),
+                            reinterpret_cast<const uint8_t*>(&now), sizeof(now)))
     {
-        last = now;
-        haveLast = true;
         if (modelListener)
         {
             modelListener->stateChanged(now);

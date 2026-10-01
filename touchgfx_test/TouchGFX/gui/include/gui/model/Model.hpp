@@ -2,6 +2,7 @@
 #define MODEL_HPP
 
 #include "app_state.h"
+#include "change_detect.h"
 #include <stdint.h>
 
 class ModelListener;
@@ -26,8 +27,7 @@ protected:
 
 private:
     static const uint8_t POLL_TICKS = 10;   // ~200 ms at 50 Hz
-    uint8_t tickCount;
-    bool haveLast;
+    ChangeDetect_t detect;
     AppState last;
 };
 

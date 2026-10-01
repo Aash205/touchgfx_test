@@ -1,5 +1,5 @@
 #include <gui/screen1_screen/Screen1View.hpp>
-#include <stdio.h>
+#include "ui_format.h"
 
 Screen1View::Screen1View()
     : ledClickedCallback(this, &Screen1View::ledClickedHandler)
@@ -49,31 +49,24 @@ void Screen1View::tearDownScreen()
 
 void Screen1View::updateState(const AppState& s)
 {
-    static const char* const bleNames[] = { "Idle", "Init", "Ready", "Advertising", "Connected", "Paired", "Error" };
-    const uint8_t bleIdx = (s.ble_status < 7) ? s.ble_status : 6;
     char line[DynText::MAX_CHARS + 1];
 
-    snprintf(line, sizeof(line), "BLE: %s", bleNames[bleIdx]);
+    (void)UiFormat_BleLine(line, sizeof(line), s.ble_status);
     bleText.setText(line);
 
-    snprintf(line, sizeof(line), "Uptime: %02lu:%02lu:%02lu",
-             (unsigned long)(s.uptime_s / 3600UL),
-             (unsigned long)((s.uptime_s / 60UL) % 60UL),
-             (unsigned long)(s.uptime_s % 60UL));
+    (void)UiFormat_UptimeLine(line, sizeof(line), s.uptime_s);
     uptimeText.setText(line);
 
-    snprintf(line, sizeof(line), "Heartbeat: %lu", (unsigned long)s.heartbeat);
+    (void)UiFormat_HeartbeatLine(line, sizeof(line), s.heartbeat);
     heartbeatText.setText(line);
 
-    snprintf(line, sizeof(line), "FPS: %u", (unsigned)s.fps);
+    (void)UiFormat_FpsLine(line, sizeof(line), s.fps);
     fpsText.setText(line);
 
-    static const char* const onLabels[APP_LED_COUNT] = { "LD1 ON", "LD3 ON" };
-    static const char* const offLabels[APP_LED_COUNT] = { "LD1 OFF", "LD3 OFF" };
     for (uint8_t i = 0; i < APP_LED_COUNT; i++)
     {
         const bool on = s.led[i] != 0;
-        ledButton[i].setLabel(on ? onLabels[i] : offLabels[i]);
+        ledButton[i].setLabel(UiFormat_LedLabel(i, on));
         ledButton[i].setBaseColor(on ? touchgfx::Color::getColorFromRGB(38, 166, 91)
                                      : touchgfx::Color::getColorFromRGB(58, 62, 70));
     }
