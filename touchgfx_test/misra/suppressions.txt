@@ -34,3 +34,9 @@ duplicateCondition:*waveshare_driver.c
 *:*custom_conf.h
 *:*custom_errno.h
 *:*tx_user.h
+
+# App/logic: the unit-tested API lands before its firmware callers (extraction steps 3 to 10), so
+# 'never used' is expected there. The rest of the tree keeps both rules.
+unusedFunction:*/App/logic/*
+misra-c2012-8.7:*/App/logic/*
+unmatchedSuppression:*/App/logic/*
