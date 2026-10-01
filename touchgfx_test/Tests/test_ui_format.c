@@ -105,6 +105,17 @@ void test_an_led_index_beyond_the_table_gives_an_empty_label_never_null(void)
     TEST_ASSERT_EQUAL_STRING("", UiFormat_LedLabel(255U, false));
 }
 
+void test_the_led_table_covers_exactly_the_declared_led_count(void)
+{
+    TEST_ASSERT_EQUAL_UINT(2U, UI_FORMAT_LED_COUNT);
+    for (uint8_t i = 0U; i < UI_FORMAT_LED_COUNT; i++)
+    {
+        TEST_ASSERT_NOT_EQUAL('\0', UiFormat_LedLabel(i, true)[0]);
+        TEST_ASSERT_NOT_EQUAL('\0', UiFormat_LedLabel(i, false)[0]);
+    }
+    TEST_ASSERT_EQUAL_STRING("", UiFormat_LedLabel(UI_FORMAT_LED_COUNT, true));
+}
+
 /* ---- truncation and bad arguments ---------------------------------------------------------- */
 
 void test_lines_are_cut_at_capacity_minus_one(void)
@@ -206,6 +217,7 @@ int main(void)
     RUN_TEST(test_heartbeat_and_fps_lines);
     RUN_TEST(test_led_labels);
     RUN_TEST(test_an_led_index_beyond_the_table_gives_an_empty_label_never_null);
+    RUN_TEST(test_the_led_table_covers_exactly_the_declared_led_count);
     RUN_TEST(test_lines_are_cut_at_capacity_minus_one);
     RUN_TEST(test_null_output_or_zero_capacity_stores_nothing);
     RUN_TEST(test_lines_match_the_original_snprintf_code);

@@ -76,11 +76,11 @@ size_t UiFormat_FpsLine(char* out, size_t capacity, uint16_t fps)
 
 const char* UiFormat_LedLabel(uint8_t index, bool on)
 {
-    static const char* const on_labels[2] = {"LD1 ON", "LD3 ON"};
-    static const char* const off_labels[2] = {"LD1 OFF", "LD3 OFF"};
+    static const char* const on_labels[UI_FORMAT_LED_COUNT] = {"LD1 ON", "LD3 ON"};
+    static const char* const off_labels[UI_FORMAT_LED_COUNT] = {"LD1 OFF", "LD3 OFF"};
     const char* label = "";
 
-    if (index < 2U)
+    if (index < UI_FORMAT_LED_COUNT)
     {
         label = on ? on_labels[index] : off_labels[index];
     }

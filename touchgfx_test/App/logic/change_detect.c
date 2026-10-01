@@ -1,6 +1,6 @@
 #include "change_detect.h"
 
-#include <string.h>
+#include <stddef.h>
 
 bool ChangeDetect_PollDue(ChangeDetect_t* detect, uint8_t period)
 {
@@ -22,18 +22,14 @@ bool ChangeDetect_PollDue(ChangeDetect_t* detect, uint8_t period)
     return due;
 }
 
-bool ChangeDetect_Update(ChangeDetect_t* detect, uint8_t* last, const uint8_t* now, size_t size)
+bool ChangeDetect_Changed(ChangeDetect_t* detect, bool differs)
 {
     bool changed = false;
 
-    if ((detect != NULL) && (last != NULL) && (now != NULL))
+    if (detect != NULL)
     {
-        if ((!detect->have_last) || (memcmp(now, last, size) != 0))
-        {
-            (void)memcpy(last, now, size);
-            detect->have_last = true;
-            changed = true;
-        }
+        changed = (!detect->have_last) || differs;
+        detect->have_last = true;
     }
 
     return changed;

@@ -8,6 +8,21 @@ Model::Model() : modelListener(0)
     memset(&last, 0, sizeof(last));
 }
 
+// Field by field on purpose: comparing the raw bytes would include struct padding, whose value C
+// leaves unspecified, and an unchanged state could then look changed.
+static bool sameState(const AppState& a, const AppState& b)
+{
+    for (uint8_t i = 0; i < APP_LED_COUNT; i++)
+    {
+        if (a.led[i] != b.led[i])
+        {
+            return false;
+        }
+    }
+    return (a.ble_status == b.ble_status) && (a.uptime_s == b.uptime_s) &&
+           (a.heartbeat == b.heartbeat) && (a.fps == b.fps);
+}
+
 void Model::tick()
 {
     if (!ChangeDetect_PollDue(&detect, POLL_TICKS))
@@ -15,15 +30,12 @@ void Model::tick()
         return;
     }
 
-    // Zero first: the snapshot is compared byte by byte, padding included, and AppState_Get
-    // fills the fields only, so stale stack bytes in the padding could look like a change.
     AppState now;
-    memset(&now, 0, sizeof(now));
     AppState_Get(&now);
 
-    if (ChangeDetect_Update(&detect, reinterpret_cast<uint8_t*>(&last),
-                            reinterpret_cast<const uint8_t*>(&now), sizeof(now)))
+    if (ChangeDetect_Changed(&detect, !sameState(now, last)))
     {
+        last = now;
         if (modelListener)
         {
             modelListener->stateChanged(now);

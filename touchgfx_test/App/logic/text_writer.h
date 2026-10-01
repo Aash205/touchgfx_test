@@ -24,7 +24,9 @@ typedef struct
  * always leaves a NUL-terminated string behind.
  *
  * TextWriter_Begin starts a writer over out and returns false (writing nothing, so the caller
- * stores nothing) when out is NULL or capacity is 0. TextWriter_PutChar and TextWriter_PutText
+ * stores nothing) when out is NULL or capacity is 0. After a failed Begin the writer is inert:
+ * every later call on it stores nothing and TextWriter_Finish returns 0. A NULL writer is
+ * ignored by every call. TextWriter_PutChar and TextWriter_PutText
  * append; a NULL text is ignored. TextWriter_PutNumber appends value in decimal, padded on the
  * left with zeros to at least min_digits digits (0 or 1 means no padding). TextWriter_Finish
  * terminates the string and returns the number of characters stored, without the NUL.

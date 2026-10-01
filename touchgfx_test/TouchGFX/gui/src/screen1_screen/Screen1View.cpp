@@ -1,6 +1,9 @@
 #include <gui/screen1_screen/Screen1View.hpp>
 #include "ui_format.h"
 
+// Every LED button needs a label from ui_format: fail the build, not the screen, if they diverge.
+static_assert(APP_LED_COUNT == UI_FORMAT_LED_COUNT, "ui_format LED labels do not match APP_LED_COUNT");
+
 Screen1View::Screen1View()
     : ledClickedCallback(this, &Screen1View::ledClickedHandler)
 {

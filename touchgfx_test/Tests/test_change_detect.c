@@ -60,118 +60,35 @@ void test_a_null_detector_is_never_due(void)
 
 /* ---- change detection ---------------------------------------------------------------------- */
 
-typedef struct
-{
-    uint8_t a;
-    uint32_t b;
-    uint16_t c;
-} Snapshot_t;
-
-void test_the_first_snapshot_always_notifies_even_if_it_equals_the_zeroed_copy(void)
+void test_the_first_state_always_notifies_even_if_it_is_not_different(void)
 {
     ChangeDetect_t d = {0U, false};
-    uint8_t last[8] = {0};
-    const uint8_t now[8] = {0};
 
-    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, last, now, sizeof(now)));
+    TEST_ASSERT_TRUE(ChangeDetect_Changed(&d, false));
     TEST_ASSERT_TRUE(d.have_last);
 }
 
-void test_an_unchanged_snapshot_does_not_notify(void)
+void test_an_unchanged_state_does_not_notify(void)
 {
     ChangeDetect_t d = {0U, false};
-    Snapshot_t last;
-    Snapshot_t now;
 
-    memset(&last, 0, sizeof(last));
-    memset(&now, 0, sizeof(now));
-    now.b = 5U;
-    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
-    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
-    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
+    TEST_ASSERT_TRUE(ChangeDetect_Changed(&d, true));
+    TEST_ASSERT_FALSE(ChangeDetect_Changed(&d, false));
+    TEST_ASSERT_FALSE(ChangeDetect_Changed(&d, false));
 }
 
-void test_a_changed_snapshot_notifies_and_is_stored(void)
+void test_a_changed_state_notifies(void)
 {
     ChangeDetect_t d = {0U, false};
-    Snapshot_t last;
-    Snapshot_t now;
 
-    memset(&last, 0, sizeof(last));
-    memset(&now, 0, sizeof(now));
-    (void)ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now));
-    now.c = 9U;
-    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
-    TEST_ASSERT_EQUAL_UINT16(9U, last.c);
-    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
+    (void)ChangeDetect_Changed(&d, false);
+    TEST_ASSERT_TRUE(ChangeDetect_Changed(&d, true));
+    TEST_ASSERT_FALSE(ChangeDetect_Changed(&d, false));
 }
 
-void test_a_change_in_the_last_byte_is_seen(void)
+void test_a_null_detector_never_notifies(void)
 {
-    ChangeDetect_t d = {0U, false};
-    uint8_t last[16] = {0};
-    uint8_t now[16] = {0};
-
-    (void)ChangeDetect_Update(&d, last, now, sizeof(now));
-    now[15] = 1U;
-    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, last, now, sizeof(now)));
-}
-
-void test_only_the_given_size_is_compared_and_stored(void)
-{
-    ChangeDetect_t d = {0U, false};
-    uint8_t last[4] = {1U, 2U, 3U, 4U};
-    uint8_t now[4] = {1U, 2U, 9U, 9U};
-
-    (void)ChangeDetect_Update(&d, last, now, 2U);
-    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, last, now, 2U));
-    TEST_ASSERT_EQUAL_UINT8(3U, last[2]);
-}
-
-void test_null_arguments_return_false_and_change_nothing(void)
-{
-    ChangeDetect_t d = {0U, false};
-    uint8_t last[2] = {0U, 0U};
-    const uint8_t now[2] = {1U, 1U};
-
-    TEST_ASSERT_FALSE(ChangeDetect_Update(NULL, last, now, 2U));
-    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, NULL, now, 2U));
-    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, last, NULL, 2U));
-    TEST_ASSERT_FALSE(d.have_last);
-    TEST_ASSERT_EQUAL_UINT8(0U, last[0]);
-}
-
-void test_padding_bytes_take_part_in_the_comparison_unless_the_snapshot_is_zeroed(void)
-{
-    ChangeDetect_t d = {0U, false};
-    Snapshot_t last;
-    Snapshot_t now;
-
-    memset(&last, 0, sizeof(last));
-    memset(&now, 0, sizeof(now));
-    now.a = 1U;
-    now.b = 2U;
-    now.c = 3U;
-    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
-
-    /* the same field values, but stale bytes in the padding: seen as a change */
-    memset(&now, 0xAA, sizeof(now));
-    now.a = 1U;
-    now.b = 2U;
-    now.c = 3U;
-    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
-
-    /* zeroed first: one more update to replace the stored padding, then stable */
-    memset(&now, 0, sizeof(now));
-    now.a = 1U;
-    now.b = 2U;
-    now.c = 3U;
-    TEST_ASSERT_TRUE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
-    memset(&now, 0, sizeof(now));
-    now.a = 1U;
-    now.b = 2U;
-    now.c = 3U;
-    TEST_ASSERT_FALSE(ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now)));
+    TEST_ASSERT_FALSE(ChangeDetect_Changed(NULL, true));
 }
 
 /* ---- differential test against the original Model::tick ------------------------------------ */
@@ -213,6 +130,13 @@ static bool original_tick(OriginalModel_t* m, const AppState_t* now)
     return notified;
 }
 
+static bool same_state(const AppState_t* x, const AppState_t* y)
+{
+    return (x->led[0] == y->led[0]) && (x->led[1] == y->led[1]) &&
+           (x->ble_status == y->ble_status) && (x->uptime_s == y->uptime_s) &&
+           (x->heartbeat == y->heartbeat) && (x->fps == y->fps);
+}
+
 static unsigned next_random(unsigned* state)
 {
     *state = (*state * 1664525U) + 1013904223U;
@@ -249,13 +173,18 @@ void test_matches_the_original_model_tick_over_random_states(void)
         expected = original_tick(&original, &now);
         if (ChangeDetect_PollDue(&d, 10U))
         {
-            actual = ChangeDetect_Update(&d, (uint8_t*)&last, (const uint8_t*)&now, sizeof(now));
+            /* the firmware compares field by field; here the structs have no stale padding */
+            actual = ChangeDetect_Changed(&d, !same_state(&now, &last));
+            if (actual)
+            {
+                last = now;
+            }
         }
 
         TEST_ASSERT_EQUAL(expected, actual);
         TEST_ASSERT_EQUAL_UINT8(original.tickCount, d.ticks);
         TEST_ASSERT_EQUAL(original.haveLast, d.have_last);
-        TEST_ASSERT_EQUAL_MEMORY(&original.last, &last, sizeof(last));
+        TEST_ASSERT_TRUE(same_state(&original.last, &last));
     }
 }
 
@@ -266,13 +195,10 @@ int main(void)
     RUN_TEST(test_a_period_of_zero_or_one_is_due_on_every_tick);
     RUN_TEST(test_the_largest_period_is_due_on_the_255th_tick);
     RUN_TEST(test_a_null_detector_is_never_due);
-    RUN_TEST(test_the_first_snapshot_always_notifies_even_if_it_equals_the_zeroed_copy);
-    RUN_TEST(test_an_unchanged_snapshot_does_not_notify);
-    RUN_TEST(test_a_changed_snapshot_notifies_and_is_stored);
-    RUN_TEST(test_a_change_in_the_last_byte_is_seen);
-    RUN_TEST(test_only_the_given_size_is_compared_and_stored);
-    RUN_TEST(test_null_arguments_return_false_and_change_nothing);
-    RUN_TEST(test_padding_bytes_take_part_in_the_comparison_unless_the_snapshot_is_zeroed);
+    RUN_TEST(test_the_first_state_always_notifies_even_if_it_is_not_different);
+    RUN_TEST(test_an_unchanged_state_does_not_notify);
+    RUN_TEST(test_a_changed_state_notifies);
+    RUN_TEST(test_a_null_detector_never_notifies);
     RUN_TEST(test_matches_the_original_model_tick_over_random_states);
     return UNITY_END();
 }

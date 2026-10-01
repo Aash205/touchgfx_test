@@ -165,6 +165,31 @@ void test_numbers_match_printf_for_many_values_and_widths(void)
     }
 }
 
+void test_a_writer_that_could_not_begin_ignores_further_calls(void)
+{
+    TextWriter_t writer;
+    char out[4] = {'x', 'x', 'x', 'x'};
+
+    TEST_ASSERT_FALSE(TextWriter_Begin(&writer, NULL, 8U));
+    TextWriter_PutChar(&writer, 'a');
+    TextWriter_PutText(&writer, "abc");
+    TextWriter_PutNumber(&writer, 42U, 3U);
+    TEST_ASSERT_EQUAL_UINT(0U, TextWriter_Finish(&writer));
+
+    TEST_ASSERT_FALSE(TextWriter_Begin(&writer, out, 0U));
+    TextWriter_PutText(&writer, "abc");
+    TEST_ASSERT_EQUAL_UINT(0U, TextWriter_Finish(&writer));
+    TEST_ASSERT_EQUAL_CHAR('x', out[0]);
+}
+
+void test_a_null_writer_is_ignored_by_every_call(void)
+{
+    TextWriter_PutChar(NULL, 'a');
+    TextWriter_PutText(NULL, "abc");
+    TextWriter_PutNumber(NULL, 42U, 3U);
+    TEST_ASSERT_EQUAL_UINT(0U, TextWriter_Finish(NULL));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -178,6 +203,8 @@ int main(void)
     RUN_TEST(test_a_capacity_of_one_stores_only_the_terminator);
     RUN_TEST(test_nothing_is_written_past_the_capacity);
     RUN_TEST(test_begin_refuses_a_null_buffer_a_zero_capacity_or_a_null_writer);
+    RUN_TEST(test_a_writer_that_could_not_begin_ignores_further_calls);
+    RUN_TEST(test_a_null_writer_is_ignored_by_every_call);
     RUN_TEST(test_numbers_match_printf_for_many_values_and_widths);
     return UNITY_END();
 }

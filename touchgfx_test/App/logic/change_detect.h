@@ -2,7 +2,6 @@
 #define CHANGE_DETECT_H
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -19,24 +18,22 @@ typedef struct
 /* clang-format off */
 /*
  * The model's poll divider and notify-on-change logic, without the state type. Pure: the caller
- * reads the application state and notifies the listener. A zeroed ChangeDetect_t is the initial
- * state (no ticks counted, no snapshot yet).
+ * reads the application state, decides whether it differs from the last one it reported, and
+ * notifies the listener. A zeroed ChangeDetect_t is the initial state (no ticks counted, nothing
+ * reported yet).
  *
  * ChangeDetect_PollDue counts one tick and returns true on every period-th tick, restarting
  * the count then. A period of 0 or 1 is due on every tick.
  *
- * ChangeDetect_Update compares the snapshot `now` with the stored copy `last` (both `size` bytes
- * long) and returns true when a notification is due: the first time, and whenever the bytes
- * differ. The snapshots are passed as bytes (a C++ caller casts its struct). In that case it also
- * stores `now` into `last`. Equal snapshots return false and change
- * nothing. NULL pointers return false and change nothing.
+ * ChangeDetect_Changed returns true when a notification is due: the first time it is called,
+ * whatever `differs` says, and afterwards whenever `differs` is true. The caller then stores the
+ * state it reported. A NULL detector returns false.
  *
- * The comparison is byte by byte, exactly like the memcmp it replaces: padding bytes inside a
- * struct take part. A caller that wants padding to be ignored should zero the snapshot before
- * filling it in.
+ * The caller compares the state field by field (not byte by byte), so padding bytes inside a
+ * struct, whose value C leaves unspecified, can never look like a change.
  */
 bool ChangeDetect_PollDue(ChangeDetect_t* detect, uint8_t period);
-bool ChangeDetect_Update(ChangeDetect_t* detect, uint8_t* last, const uint8_t* now, size_t size);
+bool ChangeDetect_Changed(ChangeDetect_t* detect, bool differs);
 /* clang-format on */
 
 #ifdef __cplusplus

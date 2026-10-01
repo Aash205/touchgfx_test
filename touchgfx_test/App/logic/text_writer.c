@@ -4,14 +4,13 @@
 
 bool TextWriter_Begin(TextWriter_t* writer, char* out, size_t capacity)
 {
-    bool usable = false;
+    const bool usable = (writer != NULL) && (out != NULL) && (capacity != 0U);
 
-    if ((writer != NULL) && (out != NULL) && (capacity != 0U))
+    if (writer != NULL)
     {
-        writer->out = out;
-        writer->limit = capacity - 1U;
+        writer->out = usable ? out : NULL;
+        writer->limit = usable ? (capacity - 1U) : 0U;
         writer->length = 0U;
-        usable = true;
     }
 
     return usable;
@@ -19,11 +18,14 @@ bool TextWriter_Begin(TextWriter_t* writer, char* out, size_t capacity)
 
 void TextWriter_PutChar(TextWriter_t* writer, char c)
 {
-    if (writer->length < writer->limit)
+    if (writer != NULL)
     {
-        writer->out[writer->length] = c;
+        if (writer->length < writer->limit)
+        {
+            writer->out[writer->length] = c;
+        }
+        writer->length++;
     }
-    writer->length++;
 }
 
 void TextWriter_PutText(TextWriter_t* writer, const char* text)
@@ -66,9 +68,13 @@ void TextWriter_PutNumber(TextWriter_t* writer, uint32_t value, size_t min_digit
 
 size_t TextWriter_Finish(const TextWriter_t* writer)
 {
-    const size_t stored = (writer->length < writer->limit) ? writer->length : writer->limit;
+    size_t stored = 0U;
 
-    writer->out[stored] = '\0';
+    if ((writer != NULL) && (writer->out != NULL))
+    {
+        stored = (writer->length < writer->limit) ? writer->length : writer->limit;
+        writer->out[stored] = '\0';
+    }
 
     return stored;
 }

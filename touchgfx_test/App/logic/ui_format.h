@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define UI_FORMAT_LED_COUNT 2U /* LEDs with a label; the GUI checks it against APP_LED_COUNT */
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -23,7 +25,7 @@ extern "C"
  * UiFormat_HeartbeatLine: "Heartbeat: <n>". UiFormat_FpsLine: "FPS: <n>".
  *
  * UiFormat_LedLabel: the button label of LED `index` (0 = LD1, 1 = LD3): "LD1 ON", "LD1 OFF",
- * "LD3 ON" or "LD3 OFF". An index of 2 or more gives an empty string, never NULL.
+ * "LD3 ON" or "LD3 OFF". An index of UI_FORMAT_LED_COUNT or more gives an empty string, never NULL.
  */
 size_t UiFormat_BleLine(char* out, size_t capacity, uint8_t ble_status);
 size_t UiFormat_UptimeLine(char* out, size_t capacity, uint32_t uptime_s);
