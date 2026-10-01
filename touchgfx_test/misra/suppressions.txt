@@ -36,7 +36,9 @@ duplicateCondition:*waveshare_driver.c
 *:*tx_user.h
 
 # App/logic: the unit-tested API lands before its firmware callers (extraction steps 3 to 10), so
-# 'never used' is expected there. The rest of the tree keeps both rules.
+# 'never used' (and 'could be static', for API only the unit tests call) is expected there. The rest
+# of the tree keeps these rules.
 unusedFunction:*/App/logic/*
 misra-c2012-8.7:*/App/logic/*
 unmatchedSuppression:*/App/logic/*
+staticFunction:*/App/logic/*
