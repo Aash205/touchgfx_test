@@ -11,7 +11,7 @@ extern "C"
 
 #define BLE_CODEC_STATUS_LENGTH 6U
 #define BLE_CODEC_UUID_LENGTH 16U
-#define BLE_AD_TYPE_COMPLETE_LOCAL_NAME 0x09U
+#define BLE_CODEC_AD_TYPE_COMPLETE_LOCAL_NAME 0x09U
 
 /* clang-format off */
 /*
@@ -51,7 +51,8 @@ size_t BleCodec_CopyName(uint8_t* dst, size_t dst_capacity, const char* src);
  * The advertising data element for the complete local name: {0x09, name bytes}, without a NUL,
  * truncated so the whole element fits in capacity. Returns the element length (1 plus the
  * name characters used), or 0 when out is NULL or capacity is 0. A NULL name gives just the
- * type byte.
+ * type byte. The name is read up to its NUL or up to capacity - 1 bytes, whichever comes first,
+ * so a name that is not NUL-terminated must be at least capacity - 1 bytes long.
  */
 size_t BleCodec_LocalNameAd(uint8_t* out, size_t capacity, const uint8_t* name);
 /* clang-format on */

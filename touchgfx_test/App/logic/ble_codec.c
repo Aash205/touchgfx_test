@@ -87,7 +87,7 @@ size_t BleCodec_LocalNameAd(uint8_t* out, size_t capacity, const uint8_t* name)
 
     if ((out != NULL) && (capacity != 0U))
     {
-        out[0] = (uint8_t)BLE_AD_TYPE_COMPLETE_LOCAL_NAME;
+        out[0] = (uint8_t)BLE_CODEC_AD_TYPE_COMPLETE_LOCAL_NAME;
         length = 1U;
         if (name != NULL)
         {

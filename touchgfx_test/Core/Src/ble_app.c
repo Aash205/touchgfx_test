@@ -52,7 +52,7 @@ static uint8_t  last_led_mask = UINT8_MAX; /* force first sync */
 /* Remain discoverable for two minutes, then stop until advertising is restarted. */
 #define BLE_ADV_DURATION_MS         120000UL
 #define BLE_STATUS_LENGTH           BLE_CODEC_STATUS_LENGTH
-_Static_assert(((uint32_t)AD_TYPE_COMPLETE_LOCAL_NAME) == BLE_AD_TYPE_COMPLETE_LOCAL_NAME,
+_Static_assert(((uint32_t)AD_TYPE_COMPLETE_LOCAL_NAME) == BLE_CODEC_AD_TYPE_COMPLETE_LOCAL_NAME,
                "ble_codec AD type must match the BlueNRG header");
 
 static uint32_t advertising_start_tick;
