@@ -12,6 +12,7 @@ add_library(app_logic STATIC
     led_fsm.c
     log_format.c
     ring.c
+    table_dispatch.c
     text_writer.c
     timeouts.c
     uart_line.c
