@@ -17,6 +17,7 @@ add_library(app_logic STATIC
     timeouts.c
     uart_line.c
     ui_format.c
+    ws169_flush.c
     ws169_geometry.c
     ws169_status.c
     ws169_wire.c
