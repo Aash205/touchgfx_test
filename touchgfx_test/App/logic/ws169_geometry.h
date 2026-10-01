@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-#define WS169_PORTRAIT_WIDTH        240U
-#define WS169_PORTRAIT_HEIGHT       280U
-#define WS169_LANDSCAPE_WIDTH       280U
-#define WS169_LANDSCAPE_HEIGHT      240U
+#define WS169_PORTRAIT_WIDTH 240U
+#define WS169_PORTRAIT_HEIGHT 280U
+#define WS169_LANDSCAPE_WIDTH 280U
+#define WS169_LANDSCAPE_HEIGHT 240U
 #define WS169_CONTROLLER_RAM_OFFSET 20U
 
 typedef enum
@@ -38,15 +38,9 @@ typedef struct
     uint16_t y_end;
 } WS169_Window_t;
 
-WS169_Status_t WS169_TranslateWindow(WS169_Rotation_t rotation,
-                                    uint16_t x1,
-                                    uint16_t y1,
-                                    uint16_t x2,
-                                    uint16_t y2,
-                                    WS169_Window_t *translated);
-WS169_Status_t WS169_GetGeometry(WS169_Rotation_t rotation,
-                                 uint16_t *width,
-                                 uint16_t *height,
-                                 uint8_t *madctl);
+WS169_Status_t WS169_TranslateWindow(WS169_Rotation_t rotation, uint16_t x1, uint16_t y1,
+                                     uint16_t x2, uint16_t y2, WS169_Window_t* translated);
+WS169_Status_t WS169_GetGeometry(WS169_Rotation_t rotation, uint16_t* width, uint16_t* height,
+                                 uint8_t* madctl);
 
 #endif
