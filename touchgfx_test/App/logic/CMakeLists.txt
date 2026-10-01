@@ -2,6 +2,7 @@
 # gets no HAL, ThreadX, USBX, BlueNRG or TouchGFX include path, so a file in here that includes
 # one fails to compile in both the firmware build and the unit-test build.
 add_library(app_logic STATIC
+    ring.c
     uart_line.c
     ws169_geometry.c
 )

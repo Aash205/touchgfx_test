@@ -28,5 +28,6 @@ function(add_unit_test name)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
+add_unit_test(test_ring)
 add_unit_test(test_uart_line)
 add_unit_test(test_ws169_geometry)
