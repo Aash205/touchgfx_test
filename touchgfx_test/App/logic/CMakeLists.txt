@@ -4,6 +4,7 @@
 add_library(app_logic STATIC
     ble_codec.c
     cmd_parse.c
+    debounce.c
     led_fsm.c
     log_format.c
     ring.c
