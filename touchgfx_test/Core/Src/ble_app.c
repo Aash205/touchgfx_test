@@ -12,6 +12,7 @@
 #include "ble_app.h"
 #include "usb_logging.h"
 #include "app_state.h"
+#include "ble_codec.h"
 #include "hci.h"
 #include "bluenrg1_hci_le.h"
 #include "bluenrg1_hal_aci.h"
@@ -36,8 +37,8 @@ static BLE_AppHandleTypeDef ble_app_handle = {
 /* Demo GATT service (128-bit UUIDs, little-endian byte order as the BlueNRG expects):
  *   service 8a7c0001-4c3e-4e2b-9d4a-0b5f00c0ffee
  *   0002  LED control  : read/write, 1 byte bitmask (bit0 = LD1, bit1 = LD3)
- *   0003  Status       : read/notify, 6 bytes {ble_status, led_mask, heartbeat u32 LE}     */
-#define UUID128(x) {0xee,0xff,0xc0,0x00,0x5f,0x0b,0x4a,0x9d,0x2b,0x4e,0x3e,0x4c,(x),0x00,0x7c,0x8a}
+ *   0003  Status       : read/notify, 6 bytes {ble_status, led_mask, heartbeat u32 LE}
+ * The byte layouts are built by App/logic/ble_codec.                                    */
 
 static uint16_t demo_service_handle;
 static uint16_t led_char_handle;
@@ -50,7 +51,9 @@ static uint8_t  last_led_mask = UINT8_MAX; /* force first sync */
 
 /* Remain discoverable for two minutes, then stop until advertising is restarted. */
 #define BLE_ADV_DURATION_MS         120000UL
-#define BLE_STATUS_LENGTH           6U
+#define BLE_STATUS_LENGTH           BLE_CODEC_STATUS_LENGTH
+_Static_assert(((uint32_t)AD_TYPE_COMPLETE_LOCAL_NAME) == BLE_AD_TYPE_COMPLETE_LOCAL_NAME,
+               "ble_codec AD type must match the BlueNRG header");
 
 static uint32_t advertising_start_tick;
 
@@ -143,13 +146,8 @@ BLE_StatusTypeDef BLE_App_StartAdvertising(const char *device_name)
 
   if ((device_name != NULL) && (ble_app_handle.status != BLE_APP_STATUS_ERROR))
   {
-    size_t name_length = strlen(device_name);
-    if (name_length >= sizeof(ble_app_handle.device_name))
-    {
-      name_length = sizeof(ble_app_handle.device_name) - 1U;
-    }
-    (void)memcpy(ble_app_handle.device_name, device_name, name_length);
-    ble_app_handle.device_name[name_length] = '\0';
+    (void)BleCodec_CopyName(ble_app_handle.device_name, sizeof(ble_app_handle.device_name),
+                            device_name);
     result = ble_set_discoverable();
   }
 
@@ -241,20 +239,23 @@ static uint8_t led_mask_get(void)
 {
   AppState st;
   AppState_Get(&st);
-  return (uint8_t)((st.led[0] ? 1U : 0U) | (st.led[1] ? 2U : 0U));
+  return BleCodec_LedMask(st.led, APP_LED_COUNT);
 }
 
 static tBleStatus ble_add_demo_service(void)
 {
-  static const uint8_t uuid_service[16] = UUID128(0x01);
-  static const uint8_t uuid_led[16] = UUID128(0x02);
-  static const uint8_t uuid_status[16] = UUID128(0x03);
+  uint8_t uuid_service[BLE_CODEC_UUID_LENGTH];
+  uint8_t uuid_led[BLE_CODEC_UUID_LENGTH];
+  uint8_t uuid_status[BLE_CODEC_UUID_LENGTH];
   /* cppcheck-suppress [misra-c2012-19.2] -- BlueNRG API models the UUID container as a union */
   Service_UUID_t svc;
   /* cppcheck-suppress [misra-c2012-19.2] -- BlueNRG API models the UUID container as a union */
   Char_UUID_t chr;
   tBleStatus ret;
   uint8_t mask = led_mask_get();
+  BleCodec_Uuid128(uuid_service, 0x01U);
+  BleCodec_Uuid128(uuid_led, 0x02U);
+  BleCodec_Uuid128(uuid_status, 0x03U);
   (void)memcpy(svc.Service_UUID_128, uuid_service, sizeof(uuid_service));
   ret = aci_gatt_add_service(UUID_TYPE_128, &svc, PRIMARY_SERVICE, 8, &demo_service_handle);
 
@@ -303,12 +304,7 @@ static void ble_sync(void)
       AppState st;
       uint8_t status[BLE_STATUS_LENGTH];
       AppState_Get(&st);
-      status[0] = st.ble_status;
-      status[1] = mask;
-      status[2] = (uint8_t)(st.heartbeat & 0xFFU);
-      status[3] = (uint8_t)((st.heartbeat >> 8U) & 0xFFU);
-      status[4] = (uint8_t)((st.heartbeat >> 16U) & 0xFFU);
-      status[5] = (uint8_t)((st.heartbeat >> 24U) & 0xFFU);
+      BleCodec_StatusPacket(status, st.ble_status, mask, st.heartbeat);
       (void)aci_gatt_update_char_value(demo_service_handle, status_char_handle, 0,
                                        sizeof(status), status);
       last_status_tick = now;
@@ -318,12 +314,10 @@ static void ble_sync(void)
 
 static BLE_StatusTypeDef ble_set_discoverable(void)
 {
-  uint8_t name_len = (uint8_t)strlen((char *)ble_app_handle.device_name);
   uint8_t local_name[33];
+  uint8_t local_name_len = (uint8_t)BleCodec_LocalNameAd(local_name, sizeof(local_name),
+                                                         ble_app_handle.device_name);
   BLE_StatusTypeDef result = BLE_APP_STATUS_ADVERTISING;
-
-  local_name[0] = AD_TYPE_COMPLETE_LOCAL_NAME;
-  (void)memcpy(&local_name[1], ble_app_handle.device_name, name_len);
 
   tBleStatus ret = aci_gap_set_non_discoverable();
   if (ret == BLE_STATUS_SUCCESS)
@@ -332,7 +326,7 @@ static BLE_StatusTypeDef ble_set_discoverable(void)
                                    BLE_ADV_INTERVAL_MIN_UNITS,
                                    BLE_ADV_INTERVAL_MAX_UNITS,
                                    PUBLIC_ADDR, NO_WHITE_LIST_USE,
-                                   (uint8_t)(name_len + 1U), local_name,
+                                   local_name_len, local_name,
                                    0, NULL, 0, 0);
   }
   if (ret != BLE_STATUS_SUCCESS)
@@ -450,7 +444,7 @@ void aci_gatt_attribute_modified_event(uint16_t Connection_Handle, uint16_t Attr
   {
     for (uint8_t i = 0U; i < APP_LED_COUNT; i++)
     {
-      AppState_SetLed(i, (Attr_Data[0] >> i) & 1U);
+      AppState_SetLed(i, BleCodec_LedBit(Attr_Data[0], i));
     }
     (void)USB_Logging_Printf(LOG_LEVEL_INFO, "BLE LED write: 0x%02X", Attr_Data[0]);
     last_led_mask = UINT8_MAX; /* re-read state on next sync */
