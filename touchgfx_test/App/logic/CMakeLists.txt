@@ -4,6 +4,7 @@
 add_library(app_logic STATIC
     ble_codec.c
     ble_fsm.c
+    ble_sync.c
     change_detect.c
     cmd_parse.c
     counters.c

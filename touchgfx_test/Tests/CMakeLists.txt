@@ -30,6 +30,7 @@ endfunction()
 
 add_unit_test(test_ble_codec)
 add_unit_test(test_ble_fsm)
+add_unit_test(test_ble_sync)
 add_unit_test(test_change_detect)
 add_unit_test(test_cmd_parse)
 add_unit_test(test_counters)
