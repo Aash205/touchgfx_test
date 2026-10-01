@@ -3,6 +3,7 @@
 # one fails to compile in both the firmware build and the unit-test build.
 add_library(app_logic STATIC
     ring.c
+    timeouts.c
     uart_line.c
     ws169_geometry.c
 )

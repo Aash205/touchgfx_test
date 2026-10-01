@@ -29,5 +29,6 @@ function(add_unit_test name)
 endfunction()
 
 add_unit_test(test_ring)
+add_unit_test(test_timeouts)
 add_unit_test(test_uart_line)
 add_unit_test(test_ws169_geometry)
