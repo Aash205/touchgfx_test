@@ -13,7 +13,6 @@
 #include "ble_app.h"
 #include "uart_line.h"
 #include "cmd_parse.h"
-#include "led_fsm.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -123,10 +122,14 @@ static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd)
         UART_CMD_SendResponse(handler, Cmd_HelpLine(i));
       }
       break;
-    default:
+    default: {
       /* CMD_INVALID_LED, CMD_INVALID_ACTION, CMD_UNKNOWN */
-      UART_CMD_SendResponse(handler, Cmd_ErrorText(parsed.kind));
+      const char *error_text = Cmd_ErrorText(parsed.kind);
+      if (error_text != NULL) {
+        UART_CMD_SendResponse(handler, error_text);
+      }
       break;
+    }
   }
 }
 
