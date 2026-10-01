@@ -20,7 +20,8 @@ static UX_SLAVE_CLASS_CDC_ACM *volatile s_cdc;
 static volatile UINT s_configured;
 static volatile UINT s_port_open;
 
-_Static_assert((RING_SIZE & (RING_SIZE - 1U)) == 0U, "RING_SIZE must be a power of two");
+_Static_assert((RING_SIZE != 0U) && ((RING_SIZE & (RING_SIZE - 1U)) == 0U),
+               "RING_SIZE must be a non-zero power of two");
 static unsigned char s_ring_storage[RING_SIZE];
 /* Statically initialised: log writes can arrive before UsbCdcLog_Init() runs. */
 static Ring_t s_ring = RING_INITIALIZER(s_ring_storage);   /* producers push, the drain thread pops */

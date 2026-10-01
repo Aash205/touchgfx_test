@@ -1,19 +1,17 @@
 #ifndef RING_H
 #define RING_H
 
+/* clang-format off: keep the rules below as written, clang-format would reflow them. */
 /*
  * Byte ring buffer with free-running head and tail counters.
  *
- * - Single consumer; producers
- * must be serialised by the caller (for example by disabling
- *   interrupts around Ring_Push).
- *
+ * - Single consumer. Producers must be serialised by the caller, for example by disabling
+ *   interrupts around Ring_Push.
  * - The capacity must be a non-zero power of two. head and tail are never wrapped to the
- *
- * capacity: they count up and overflow naturally, and (head - tail) is the stored byte count.
- * -
- * Pure logic: no RTOS or HAL types. The caller owns the storage.
+ *   capacity: they count up and overflow naturally, and (head - tail) is the stored byte count.
+ * - Pure logic: no RTOS or HAL types. The caller owns the storage.
  */
+/* clang-format on */
 
 typedef struct
 {
@@ -23,8 +21,7 @@ typedef struct
     volatile unsigned tail; /* written by the consumer */
 } Ring_t;
 
-/* Static initialiser for a ring over a statically sized array: Ring_t r = RING_INITIALIZER(array);
- */
+/* Static initialiser for a ring over a statically sized array: RING_INITIALIZER(array). */
 #define RING_INITIALIZER(storage) {(storage), (unsigned)sizeof(storage), 0U, 0U}
 
 /* Append up to size bytes; returns how many were accepted (the rest are dropped). */
