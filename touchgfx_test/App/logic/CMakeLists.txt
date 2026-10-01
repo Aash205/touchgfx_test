@@ -9,6 +9,7 @@ add_library(app_logic STATIC
     cmd_parse.c
     counters.c
     debounce.c
+    health_format.c
     led_fsm.c
     log_format.c
     ring.c
