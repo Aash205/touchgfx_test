@@ -7,6 +7,8 @@
 
 #include "app_core.h"
 #include "uart_commands.h"
+#include "counters.h"
+#include "debounce.h"
 #include "ble_app.h"
 #include "usb_logging.h"
 #include "tx_api.h"
@@ -16,9 +18,7 @@
 #define BTN_DEBOUNCE_POLLS 2U
 
 static UART_CommandTypeDef s_console;
-static volatile uint32_t s_frames;       /* flushes since the last Tick1s */
-static volatile uint16_t s_fps;
-static volatile uint32_t s_heartbeat;
+static Counters_t s_counters;            /* frame and heartbeat counters (App/logic/counters) */
 
 void AppCore_Init(UART_HandleTypeDef *console_uart)
 {
@@ -45,16 +45,11 @@ void AppCore_Init(UART_HandleTypeDef *console_uart)
 
 static void poll_button(void)
 {
-  static uint8_t stable, last;
+  static Debounce_t debounce;
 
-  uint8_t now = (HAL_GPIO_ReadPin(USER_BTN_PORT, USER_BTN_PIN) == GPIO_PIN_SET);
-  if (now == last) {
-    if (stable < BTN_DEBOUNCE_POLLS && ++stable == BTN_DEBOUNCE_POLLS && now) {
-      AppState_ToggleLed(0);      /* B1 press toggles LD1 */
-    }
-  } else {
-    last = now;
-    stable = 0;
+  const bool pressed = (HAL_GPIO_ReadPin(USER_BTN_PORT, USER_BTN_PIN) == GPIO_PIN_SET);
+  if (Debounce_Poll(&debounce, pressed, BTN_DEBOUNCE_POLLS)) {
+    AppState_ToggleLed(0);        /* B1 press toggles LD1 */
   }
 }
 
@@ -82,13 +77,12 @@ void AppCore_UartError(UART_HandleTypeDef *huart)
 
 void AppCore_Tick1s(void)
 {
-  s_fps = (uint16_t)s_frames;
-  s_frames = 0;
+  Counters_Tick1s(&s_counters);
 }
 
 uint32_t AppCore_Heartbeat(void)
 {
-  return ++s_heartbeat;
+  return Counters_Heartbeat(&s_counters);
 }
 
 /* ---- AppState (app_state.h) --------------------------------------------- */
@@ -102,8 +96,8 @@ void AppState_Get(AppState *out)
   /* Use the RTOS clock for application uptime. It starts when ThreadX starts and
      is independent of the HAL peripheral time base used by driver timeouts. */
   out->uptime_s = (uint32_t)(tx_time_get() / TX_TIMER_TICKS_PER_SECOND);
-  out->heartbeat = s_heartbeat;
-  out->fps = s_fps;
+  out->heartbeat = Counters_HeartbeatValue(&s_counters);
+  out->fps = Counters_Fps(&s_counters);
 }
 
 void AppState_SetLed(uint8_t idx, uint8_t on)
@@ -122,5 +116,5 @@ void AppState_ToggleLed(uint8_t idx)
 
 void AppState_FrameFlushed(void)
 {
-  s_frames++;
+  Counters_FrameFlushed(&s_counters);
 }
