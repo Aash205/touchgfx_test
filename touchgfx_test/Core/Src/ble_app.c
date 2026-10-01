@@ -68,6 +68,8 @@ _Static_assert(((int)BLE_APP_STATUS_IDLE == (int)BLE_FSM_IDLE) &&
 _Static_assert((((uint32_t)EVT_LE_META_EVENT) == TABLE_DISPATCH_EVT_LE_META) &&
                  (((uint32_t)EVT_VENDOR) == TABLE_DISPATCH_EVT_VENDOR),
                "table_dispatch event codes must match the BlueNRG header");
+_Static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
+               "TableDispatch_Find reads the event table codes as little-endian");
 
 static uint32_t advertising_start_tick;
 
@@ -302,7 +304,6 @@ static tBleStatus ble_add_demo_service(void)
 /* Move the status to what ble_fsm says follows the event. */
 static void ble_apply(BleFsm_Event_t event)
 {
-  /* cppcheck-suppress [misra-c2012-10.5] -- BLE_StatusTypeDef and BleFsm_State_t have the same values (checked by the _Static_assert above) */
   ble_app_handle.status =
       (BLE_StatusTypeDef)BleFsm_Next((BleFsm_State_t)ble_app_handle.status, event);
 }
@@ -372,7 +373,6 @@ static BLE_StatusTypeDef ble_set_discoverable(void)
 static void ble_dispatch(const hci_events_table_type *table, size_t count, uint16_t code,
                          uint8_t *data)
 {
-  /* cppcheck-suppress [misra-c2012-11.3] -- the table is searched as bytes by the pure TableDispatch_Find */
   const size_t index = TableDispatch_Find((const uint8_t *)table, sizeof(table[0]), count,
                                           offsetof(hci_events_table_type, evt_code), code);
   if (index != TABLE_DISPATCH_NOT_FOUND)

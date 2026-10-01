@@ -31,15 +31,19 @@ size_t TableDispatch_Find(const uint8_t* table, size_t entry_size, size_t entry_
                         (code_offset <= (entry_size - sizeof(uint16_t))) &&
                         (entry_count <= (SIZE_MAX / entry_size));
 
-    for (size_t i = 0U; usable && (found == TABLE_DISPATCH_NOT_FOUND) && (i < entry_count); i++)
+    if (usable)
     {
-        const size_t at = (i * entry_size) + code_offset;
-        const uint16_t entry_code =
-            (uint16_t)((uint16_t)table[at] | (uint16_t)((uint16_t)table[at + 1U] << 8U));
-
-        if (entry_code == code)
+        for (size_t i = 0U; i < entry_count; i++)
         {
-            found = i;
+            const size_t at = (i * entry_size) + code_offset;
+            const uint16_t entry_code =
+                (uint16_t)((uint16_t)table[at] | (uint16_t)((uint16_t)table[at + 1U] << 8U));
+
+            if (entry_code == code)
+            {
+                found = i;
+                break;
+            }
         }
     }
 
