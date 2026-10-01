@@ -12,6 +12,7 @@ add_library(app_logic STATIC
     text_writer.c
     timeouts.c
     uart_line.c
+    ui_format.c
     ws169_geometry.c
 )
 target_include_directories(app_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
