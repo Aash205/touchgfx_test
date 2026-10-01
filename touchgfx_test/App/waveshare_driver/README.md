@@ -23,5 +23,8 @@ The driver contains the board's SPI2 and display-pin setup as well as the
 panel operations. CubeMX-generated files do not own this folder and will not
 overwrite it.
 
-The hardware-independent display geometry (`ws169_geometry`) lives in `App/logic/` and is covered
-by unit tests in `Tests/test_ws169_geometry.c` (run `scripts/unit-test.sh`).
+The hardware-independent parts of the driver live in `App/logic/` and are covered by unit tests in
+`Tests/` (run `scripts/unit-test.sh`): `ws169_geometry` (rotation geometry, window translation),
+`ws169_status` (HAL code to status, diagnostic counters), `ws169_wire` (window parameter bytes,
+RGB565 fill row), `ws169_flush` (rectangle checks, transfer plan) and `ws169_init` (the ST7789V2
+set-up command table). This folder keeps the SPI, DMA, GPIO and ThreadX calls.

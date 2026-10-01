@@ -32,6 +32,7 @@ with `ctest`. It exits non-zero if any test fails. Framework: Unity v2.7.0 (MIT)
 | `cmd_parse` | `test_cmd_parse.c` | 21 |
 | `counters` | `test_counters.c` | 9 |
 | `debounce` | `test_debounce.c` | 8 |
+| `health_format` | `test_health_format.c` | 7 |
 | `led_fsm` | `test_led_fsm.c` | 15 |
 | `log_format` | `test_log_format.c` | 16 |
 | `ring` | `test_ring.c` | 14 |
@@ -40,4 +41,8 @@ with `ctest`. It exits non-zero if any test fails. Framework: Unity v2.7.0 (MIT)
 | `timeouts` | `test_timeouts.c` | 12 |
 | `uart_line` | `test_uart_line.c` | 7 |
 | `ui_format` | `test_ui_format.c` | 11 |
+| `ws169_flush` | `test_ws169_flush.c` | 13 |
 | `ws169_geometry` | `test_ws169_geometry.c` | 23 |
+| `ws169_init` | `test_ws169_init.c` | 4 |
+| `ws169_status` | `test_ws169_status.c` | 7 |
+| `ws169_wire` | `test_ws169_wire.c` | 9 |
