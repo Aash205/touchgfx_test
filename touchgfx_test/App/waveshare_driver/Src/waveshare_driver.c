@@ -379,6 +379,10 @@ static WS169_Status_t ws169_initialize_controller(WS169_Rotation_t rotation)
         {
             status = ws169_write_command_data(command.command, command.data, command.length);
         }
+        else
+        {
+            status = WS169_STATUS_INVALID_ARGUMENT;
+        }
     }
 
     if (status == WS169_STATUS_OK)
@@ -599,7 +603,11 @@ WS169_Status_t WS169_FillScreenRGB565(uint16_t color)
     width = WS169_GetWidth();
     height = WS169_GetHeight();
 
-    (void)WS169_FillRowRGB565(row, sizeof(row), width, color);
+    if (WS169_FillRowRGB565(row, sizeof(row), width, color) == 0U)
+    {
+        ws169_record_status(WS169_STATUS_INVALID_ARGUMENT, 0U);
+        return WS169_STATUS_INVALID_ARGUMENT;
+    }
 
     status = ws169_lock();
     lock_acquired = (status == WS169_STATUS_OK);

@@ -141,7 +141,6 @@ static unsigned next_random(unsigned* state)
 }
 
 /* The original WS169_FlushRectRGB565 argument checks (the framebuffer NULL check stays in the
- *
  * driver), as a "valid" flag. */
 static bool original_valid(uint16_t stride, uint16_t display_width, uint16_t display_height,
                            uint16_t x, uint16_t y, uint16_t width, uint16_t height)

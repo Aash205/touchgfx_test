@@ -38,6 +38,8 @@ typedef struct
  * (y + row) * stride + x. WS169_FlushPlanNext stores the pixel offset (from the start of the
  * framebuffer) and the pixel count of the next transfer and returns true, or returns false when
  * the plan is finished (or an argument is NULL). An empty rectangle gives no transfers.
+ * The plan assumes the rectangle passed WS169_FlushRectValid for the display: for a rectangle
+ * that reaches outside it the offsets are not meaningful (and can wrap).
  */
 bool WS169_FlushRectValid(uint16_t stride, uint16_t display_width, uint16_t display_height,
                           uint16_t x, uint16_t y, uint16_t width, uint16_t height);

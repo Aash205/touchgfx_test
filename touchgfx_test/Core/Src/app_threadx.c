@@ -205,7 +205,7 @@ static void thread_monitor_entry(ULONG input)
     if (++seconds % 5U == 0U) {
       AppState st;
       WS169_Diagnostics_t display_diagnostics;
-      char health[HEALTH_FORMAT_MAX_LENGTH + 1U];
+      static char health[HEALTH_FORMAT_MAX_LENGTH + 1U]; /* static: keeps it off the 3 KB stack */
       AppState_Get(&st);
       WS169_GetDiagnostics(&display_diagnostics);
       (void)HealthFormat_Line(health, sizeof(health), UsbCdcLog_IsActive(),

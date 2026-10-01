@@ -64,7 +64,6 @@ void test_a_status_outside_the_enum_is_not_counted(void)
 /* ---- differential test against the original driver code ------------------------------------ */
 
 /* The original ws169_status_from_hal switch and ws169_record_status chain, with the HAL enum
- *
  * replaced by its integer values. */
 static WS169_Status_t original_status(uint32_t hal_status, bool dma_transfer)
 {
