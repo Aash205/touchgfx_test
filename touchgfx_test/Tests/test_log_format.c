@@ -229,13 +229,13 @@ void test_matches_the_original_snprintf_layout(void)
         const unsigned message_length = next_random(&state) % 290U;
         const size_t capacity = 1U + (next_random(&state) % 290U);
         const LogLevelTypeDef level = (LogLevelTypeDef)(next_random(&state) % 8U);
-        unsigned ms = next_random(&state);
+        unsigned ms = next_random(&state) << 8U;
         size_t expected_length;
         size_t actual_length;
 
         if ((next_random(&state) & 3U) == 0U)
         {
-            ms = (ms % 4U == 0U) ? UINT32_MAX : ms * 1000U;
+            ms = (((ms >> 8U) % 4U) == 0U) ? UINT32_MAX : ms * 1000U;
         }
         for (unsigned i = 0U; i < message_length; i++)
         {
