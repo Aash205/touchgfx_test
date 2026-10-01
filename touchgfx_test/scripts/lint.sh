@@ -6,6 +6,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MISRA_DIR="$REPO_ROOT/misra"
 
 EXCLUDE_FILE="$MISRA_DIR/exclude-paths.txt"
+# Excluded from the MISRA pass only (still format-checked): see the file for the reasons.
+LINT_EXCLUDE_FILE="$MISRA_DIR/lint-exclude-paths.txt"
 SUPPRESSIONS_FILE="$MISRA_DIR/suppressions.txt"
 CLANG_TIDY_CONFIG="$REPO_ROOT/.clang-tidy"
 CPPCHECK_PLATFORM="$MISRA_DIR/arm32-wchar_t4.xml"
@@ -207,13 +209,21 @@ is_excluded() {
     # Normalize before matching so vendor/generated paths stay excluded on
     # Git Bash as well as on Unix.
     path="${path//\\//}"
+    # Match against the project-relative path ("/Tests/vendor/..."), so a relative target given
+    # from the project directory is judged the same as the absolute path from a whole-repo
+    # scan, and a parent directory that happens to be named "Tests" or "build" cannot exclude
+    # the whole project. Paths outside the project (toolchain headers) stay absolute.
+    path="$(realpath -m -- "$path" 2>/dev/null || printf '%s' "$path")"
+    case "$path" in
+        "$REPO_ROOT"/*) path="/${path#"$REPO_ROOT"/}" ;;
+    esac
     while IFS= read -r pattern; do
         [[ -z "$pattern" || "$pattern" == \#* ]] && continue
         # shellcheck disable=SC2053
         if [[ "$path" == $pattern ]]; then
             return 0
         fi
-    done < "$EXCLUDE_FILE"
+    done < <(cat "$EXCLUDE_FILE" "$LINT_EXCLUDE_FILE")
     return 1
 }
 
@@ -422,7 +432,7 @@ PY
     while IFS= read -r pattern; do
         [[ -z "$pattern" || "$pattern" == \#* ]] && continue
         printf '*:%s\n' "$pattern" >> "$combined_suppressions"
-    done < "$EXCLUDE_FILE"
+    done < <(cat "$EXCLUDE_FILE" "$LINT_EXCLUDE_FILE")
 
     cppcheck_log="$(mktemp)"
     # set +e around the pipeline, not `|| true` after it: under pipefail, a

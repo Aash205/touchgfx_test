@@ -90,7 +90,6 @@
 */.metadata/*
 */node_modules/*
 
-# Unit tests and the vendored Unity framework are not product code: out of MISRA and out of
-# format.sh (which shares this list). Test files are formatted once with clang-format when
-# written. Unity is vendored byte-for-byte (see Tests/vendor/unity/VENDORED.md).
-*/Tests/*
+# The vendored Unity framework is third-party code kept byte-for-byte (see
+# Tests/vendor/unity/VENDORED.md): out of lint and out of format.sh.
+*/Tests/vendor/*

@@ -18,6 +18,14 @@ fi
 
 is_excluded() {
     local path="$1"
+    # Match against the project-relative path ("/Tests/vendor/..."), so a relative target given
+    # from the project directory is judged the same as the absolute path from a whole-repo
+    # scan, and a parent directory that happens to be named "Tests" or "build" cannot exclude
+    # the whole project. Paths outside the project (toolchain headers) stay absolute.
+    path="$(realpath -m -- "$path" 2>/dev/null || printf '%s' "$path")"
+    case "$path" in
+        "$REPO_ROOT"/*) path="/${path#"$REPO_ROOT"/}" ;;
+    esac
     while IFS= read -r pattern; do
         [[ -z "$pattern" || "$pattern" == \#* ]] && continue
         # shellcheck disable=SC2053

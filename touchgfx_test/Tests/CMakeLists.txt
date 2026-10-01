@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 project(unit_tests C)
 
+# Same language standard as the firmware (root CMakeLists.txt: C11 with GNU extensions).
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
+
 enable_testing()
 
 # Same source list as the firmware build, compiled with the native compiler.
