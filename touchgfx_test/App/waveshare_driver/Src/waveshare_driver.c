@@ -9,6 +9,10 @@
 #include "main.h"
 #include "tx_api.h"
 #include "timeouts.h"
+#include "ws169_flush.h"
+#include "ws169_init.h"
+#include "ws169_status.h"
+#include "ws169_wire.h"
 #include <stddef.h>
 
 extern SPI_HandleTypeDef hspi2;
@@ -25,8 +29,11 @@ extern SPI_HandleTypeDef hspi2;
 
 #define WS169_SPI_DATA_8BIT      SPI_DATASIZE_8BIT
 #define WS169_SPI_DATA_16BIT     SPI_DATASIZE_16BIT
-#define WS169_DMA_MAX_PIXELS     65535U
 #define WS169_MAX_ROW_BYTES      (WS169_LANDSCAPE_WIDTH * 2U)
+
+_Static_assert(((uint32_t)HAL_OK == WS169_HAL_OK) && ((uint32_t)HAL_ERROR == WS169_HAL_ERROR) &&
+                 ((uint32_t)HAL_BUSY == WS169_HAL_BUSY) && ((uint32_t)HAL_TIMEOUT == WS169_HAL_TIMEOUT),
+               "ws169_status HAL codes must match HAL_StatusTypeDef");
 
 typedef enum
 {
@@ -83,21 +90,24 @@ static void ws169_record_status(WS169_Status_t status, uint32_t hal_error)
     s_diagnostics.last_status = status;
     s_diagnostics.last_hal_error = hal_error;
 
-    if ((status == WS169_STATUS_SPI_ERROR) || (status == WS169_STATUS_SPI_BUSY))
+    switch (WS169_CounterOf(status))
     {
-        s_diagnostics.spi_error_count++;
-    }
-    else if (status == WS169_STATUS_DMA_ERROR)
-    {
-        s_diagnostics.dma_error_count++;
-    }
-    else if (status == WS169_STATUS_TIMEOUT)
-    {
-        s_diagnostics.timeout_count++;
-    }
-    else
-    {
-        /* No diagnostic counter applies. */
+        case WS169_COUNTER_SPI:
+            s_diagnostics.spi_error_count++;
+            break;
+
+        case WS169_COUNTER_DMA:
+            s_diagnostics.dma_error_count++;
+            break;
+
+        case WS169_COUNTER_TIMEOUT:
+            s_diagnostics.timeout_count++;
+            break;
+
+        case WS169_COUNTER_NONE:
+        default:
+            /* No diagnostic counter applies. */
+            break;
     }
 
     ws169_exit_critical(interrupt_state);
@@ -112,32 +122,12 @@ static void ws169_record_successful_transfer(void)
 
 static WS169_Status_t ws169_status_from_hal(HAL_StatusTypeDef hal_status, bool dma_transfer)
 {
-    WS169_Status_t status;
+    const WS169_Status_t status = WS169_StatusFromHal((uint32_t)hal_status, dma_transfer);
     uint32_t hal_error = 0U;
 
     if (s_config_valid && (s_config.spi != NULL))
     {
         hal_error = s_config.spi->ErrorCode;
-    }
-
-    switch (hal_status)
-    {
-        case HAL_OK:
-            status = WS169_STATUS_OK;
-            break;
-
-        case HAL_BUSY:
-            status = WS169_STATUS_SPI_BUSY;
-            break;
-
-        case HAL_TIMEOUT:
-            status = WS169_STATUS_TIMEOUT;
-            break;
-
-        case HAL_ERROR:
-        default:
-            status = dma_transfer ? WS169_STATUS_DMA_ERROR : WS169_STATUS_SPI_ERROR;
-            break;
     }
 
     if (status != WS169_STATUS_OK)
@@ -218,7 +208,7 @@ static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
 
     while (remaining > 0U)
     {
-        uint16_t chunk = (remaining > 0xFFFFU) ? 0xFFFFU : (uint16_t)remaining;
+        uint16_t chunk = (uint16_t)WS169_ChunkSize(remaining, 0xFFFFU);
         HAL_StatusTypeDef hal_status = HAL_SPI_Transmit(s_config.spi,
                                                        (uint8_t *)(uintptr_t)cursor,
                                                        chunk,
@@ -305,7 +295,8 @@ static WS169_Status_t ws169_set_address_window_unlocked(uint16_t x1,
                                                         uint16_t x2,
                                                         uint16_t y2)
 {
-    uint8_t data[4];
+    uint8_t columns[WS169_WINDOW_BYTES];
+    uint8_t rows[WS169_WINDOW_BYTES];
     WS169_Window_t window;
     WS169_Status_t status = WS169_TranslateWindow(s_rotation, x1, y1, x2, y2, &window);
 
@@ -315,19 +306,12 @@ static WS169_Status_t ws169_set_address_window_unlocked(uint16_t x1,
         return status;
     }
 
-    data[0] = (uint8_t)(window.x_start >> 8);
-    data[1] = (uint8_t)(window.x_start & 0xFFU);
-    data[2] = (uint8_t)(window.x_end >> 8);
-    data[3] = (uint8_t)(window.x_end & 0xFFU);
-    status = ws169_write_command_data(WS169_CMD_COLUMN_ADDRESS, data, sizeof(data));
+    WS169_EncodeWindow(&window, columns, rows);
+    status = ws169_write_command_data(WS169_CMD_COLUMN_ADDRESS, columns, sizeof(columns));
 
     if (status == WS169_STATUS_OK)
     {
-        data[0] = (uint8_t)(window.y_start >> 8);
-        data[1] = (uint8_t)(window.y_start & 0xFFU);
-        data[2] = (uint8_t)(window.y_end >> 8);
-        data[3] = (uint8_t)(window.y_end & 0xFFU);
-        status = ws169_write_command_data(WS169_CMD_ROW_ADDRESS, data, sizeof(data));
+        status = ws169_write_command_data(WS169_CMD_ROW_ADDRESS, rows, sizeof(rows));
     }
 
     if (status == WS169_STATUS_OK)
@@ -380,47 +364,6 @@ static WS169_Status_t ws169_reset_unlocked(void)
 
 static WS169_Status_t ws169_initialize_controller(WS169_Rotation_t rotation)
 {
-    static const uint8_t pixel_format[] = {0x55U};
-    static const uint8_t porch[] = {0x0BU, 0x0BU, 0x00U, 0x33U, 0x35U};
-    static const uint8_t gate_control[] = {0x11U};
-    static const uint8_t vcom[] = {0x35U};
-    static const uint8_t lcm_control[] = {0x2CU};
-    static const uint8_t vdv_vrh_enable[] = {0x01U};
-    static const uint8_t vrh_set[] = {0x0DU};
-    static const uint8_t vdv_set[] = {0x20U};
-    static const uint8_t frame_rate[] = {0x13U};
-    static const uint8_t power[] = {0xA4U, 0xA1U};
-    static const uint8_t power_control[] = {0xA1U};
-    static const uint8_t gamma_positive[] = {
-        0xF0U, 0x06U, 0x0BU, 0x0AU, 0x09U, 0x26U, 0x29U,
-        0x33U, 0x41U, 0x18U, 0x16U, 0x15U, 0x29U, 0x2DU
-    };
-    static const uint8_t gamma_negative[] = {
-        0xF0U, 0x04U, 0x08U, 0x08U, 0x07U, 0x03U, 0x28U,
-        0x32U, 0x40U, 0x3BU, 0x19U, 0x18U, 0x2AU, 0x2EU
-    };
-    static const uint8_t vendor_e4[] = {0x25U, 0x00U, 0x00U};
-    static const struct
-    {
-        uint8_t command;
-        const uint8_t *data;
-        uint8_t length;
-    } sequence[] = {
-        {0x3AU, pixel_format, (uint8_t)sizeof(pixel_format)},
-        {0xB2U, porch, (uint8_t)sizeof(porch)},
-        {0xB7U, gate_control, (uint8_t)sizeof(gate_control)},
-        {0xBBU, vcom, (uint8_t)sizeof(vcom)},
-        {0xC0U, lcm_control, (uint8_t)sizeof(lcm_control)},
-        {0xC2U, vdv_vrh_enable, (uint8_t)sizeof(vdv_vrh_enable)},
-        {0xC3U, vrh_set, (uint8_t)sizeof(vrh_set)},
-        {0xC4U, vdv_set, (uint8_t)sizeof(vdv_set)},
-        {0xC6U, frame_rate, (uint8_t)sizeof(frame_rate)},
-        {0xD0U, power, (uint8_t)sizeof(power)},
-        {0xD6U, power_control, (uint8_t)sizeof(power_control)},
-        {0xE0U, gamma_positive, (uint8_t)sizeof(gamma_positive)},
-        {0xE1U, gamma_negative, (uint8_t)sizeof(gamma_negative)},
-        {0xE4U, vendor_e4, (uint8_t)sizeof(vendor_e4)}
-    };
     WS169_Status_t status = ws169_reset_unlocked();
 
     if (status == WS169_STATUS_OK)
@@ -428,14 +371,14 @@ static WS169_Status_t ws169_initialize_controller(WS169_Rotation_t rotation)
         status = ws169_set_rotation_unlocked(rotation);
     }
 
-    for (uint32_t i = 0U;
-         (i < (uint32_t)(sizeof(sequence) / sizeof(sequence[0]))) &&
-         (status == WS169_STATUS_OK);
-         i++)
+    for (size_t i = 0U; (i < WS169_InitCommandCount()) && (status == WS169_STATUS_OK); i++)
     {
-        status = ws169_write_command_data(sequence[i].command,
-                                          sequence[i].data,
-                                          sequence[i].length);
+        WS169_InitCommand_t command;
+
+        if (WS169_InitCommandAt(i, &command))
+        {
+            status = ws169_write_command_data(command.command, command.data, command.length);
+        }
     }
 
     if (status == WS169_STATUS_OK)
@@ -656,11 +599,7 @@ WS169_Status_t WS169_FillScreenRGB565(uint16_t color)
     width = WS169_GetWidth();
     height = WS169_GetHeight();
 
-    for (uint16_t x = 0U; x < width; x++)
-    {
-        row[(uint32_t)x * 2U] = (uint8_t)(color >> 8);
-        row[((uint32_t)x * 2U) + 1U] = (uint8_t)(color & 0xFFU);
-    }
+    (void)WS169_FillRowRGB565(row, sizeof(row), width, color);
 
     status = ws169_lock();
     lock_acquired = (status == WS169_STATUS_OK);
@@ -769,11 +708,9 @@ WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
     {
         return WS169_STATUS_NOT_INITIALIZED;
     }
-    if ((framebuffer == NULL) || (width == 0U) || (height == 0U) ||
-        (framebuffer_stride_pixels < display_width) ||
-        (x >= display_width) || (y >= display_height) ||
-        (width > (uint16_t)(display_width - x)) ||
-        (height > (uint16_t)(display_height - y)))
+    if ((framebuffer == NULL) ||
+        (!WS169_FlushRectValid(framebuffer_stride_pixels, display_width, display_height,
+                               x, y, width, height)))
     {
         ws169_record_status(WS169_STATUS_INVALID_ARGUMENT, 0U);
         return WS169_STATUS_INVALID_ARGUMENT;
@@ -801,29 +738,14 @@ WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
 
     if (status == WS169_STATUS_OK)
     {
-        if ((x == 0U) && (width == framebuffer_stride_pixels))
-        {
-            const uint16_t *source = &framebuffer[(uint32_t)y * framebuffer_stride_pixels];
-            uint32_t offset = 0U;
-            uint32_t remaining = (uint32_t)width * height;
+        WS169_FlushPlan_t plan;
+        uint32_t offset = 0U;
+        uint16_t count = 0U;
 
-            while ((remaining > 0U) && (status == WS169_STATUS_OK))
-            {
-                uint16_t count = (remaining > WS169_DMA_MAX_PIXELS) ?
-                                 (uint16_t)WS169_DMA_MAX_PIXELS : (uint16_t)remaining;
-                status = ws169_send_pixels(&source[offset], count);
-                offset += count;
-                remaining -= count;
-            }
-        }
-        else
+        WS169_FlushPlanInit(&plan, framebuffer_stride_pixels, x, y, width, height);
+        while ((status == WS169_STATUS_OK) && WS169_FlushPlanNext(&plan, &offset, &count))
         {
-            for (uint16_t row = 0U; (row < height) && (status == WS169_STATUS_OK); row++)
-            {
-                const uint16_t *source = &framebuffer[
-                    (((uint32_t)y + row) * framebuffer_stride_pixels) + x];
-                status = ws169_send_pixels(source, width);
-            }
+            status = ws169_send_pixels(&framebuffer[offset], count);
         }
     }
 

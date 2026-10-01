@@ -19,6 +19,7 @@
 #include "app_core.h"
 #include "usb_logging.h"
 #include "usb_cdc_log.h"
+#include "health_format.h"
 
 extern UART_HandleTypeDef hlpuart1;
 /* USER CODE END Includes */
@@ -204,18 +205,17 @@ static void thread_monitor_entry(ULONG input)
     if (++seconds % 5U == 0U) {
       AppState st;
       WS169_Diagnostics_t display_diagnostics;
+      char health[HEALTH_FORMAT_MAX_LENGTH + 1U];
       AppState_Get(&st);
       WS169_GetDiagnostics(&display_diagnostics);
-      USB_Logging_Printf(LOG_LEVEL_INFO,
-                         "HEALTH ThreadX=OK USBX=%s TouchGFX_FPS=%u BLE=%d Display=%d "
-                         "DisplayFaults=%lu Heartbeat=%lu",
-                         UsbCdcLog_IsActive() ? "ACTIVE" : "WAIT",
-                          (unsigned)st.fps, (int)st.ble_status,
-                         (int)display_diagnostics.last_status,
-                         (unsigned long)(display_diagnostics.spi_error_count +
-                                         display_diagnostics.dma_error_count +
-                                         display_diagnostics.timeout_count),
-                         (unsigned long)AppCore_Heartbeat());
+      (void)HealthFormat_Line(health, sizeof(health), UsbCdcLog_IsActive(),
+                              st.fps, st.ble_status,
+                              (uint32_t)display_diagnostics.last_status,
+                              display_diagnostics.spi_error_count +
+                                  display_diagnostics.dma_error_count +
+                                  display_diagnostics.timeout_count,
+                              AppCore_Heartbeat());
+      USB_Logging_Printf(LOG_LEVEL_INFO, "%s", health);
     }
   }
 }
