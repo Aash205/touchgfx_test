@@ -9,6 +9,7 @@ add_library(app_logic STATIC
     led_fsm.c
     log_format.c
     ring.c
+    text_writer.c
     timeouts.c
     uart_line.c
     ws169_geometry.c
