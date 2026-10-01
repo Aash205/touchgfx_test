@@ -26,6 +26,10 @@ with `ctest`. It exits non-zero if any test fails. Framework: Unity v2.7.0 (MIT)
 | Module | Test file | Cases |
 |---|---|---|
 | `ble_codec` | `test_ble_codec.c` | 31 |
+| `cmd_parse` | `test_cmd_parse.c` | 21 |
+| `counters` | `test_counters.c` | 9 |
+| `debounce` | `test_debounce.c` | 8 |
+| `led_fsm` | `test_led_fsm.c` | 15 |
 | `log_format` | `test_log_format.c` | 16 |
 | `ring` | `test_ring.c` | 14 |
 | `timeouts` | `test_timeouts.c` | 12 |
