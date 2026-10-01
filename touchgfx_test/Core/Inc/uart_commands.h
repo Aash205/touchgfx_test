@@ -17,23 +17,13 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
+#include "led_fsm.h"   /* LED_StateTypeDef and the pure LED state machine (App/logic) */
 
-/* LED States ----------------------------------------------------------------*/
-typedef enum {
-  LED_OFF,
-  LED_ON,
-  LED_TOGGLE,
-  LED_BLINK_SLOW,
-  LED_BLINK_FAST
-} LED_StateTypeDef;
-
-/* LED Handle ----------------------------------------------------------------*/
+/* LED Handle: the pin plus the state machine that decides what to do with it ------------*/
 typedef struct {
   GPIO_TypeDef *port;
   uint16_t pin;
-  LED_StateTypeDef state;
-  uint32_t blink_count;
-  uint32_t blink_period;
+  Led_t fsm;
 } LED_HandleTypeDef;
 
 /* UART Command Handler -------------------------------------------------------*/

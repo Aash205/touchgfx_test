@@ -12,13 +12,16 @@
 #include "usb_logging.h"
 #include "ble_app.h"
 #include "uart_line.h"
+#include "cmd_parse.h"
+#include "led_fsm.h"
+#include <stdbool.h>
 #include <string.h>
-#include <stdio.h>
 
 /* Private function prototypes -----------------------------------------------*/
 static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd);
 static void UART_CMD_SendResponse(UART_CommandTypeDef *handler, const char *response);
 static void UART_CMD_GetStatus(const UART_CommandTypeDef *handler, char *status_str);
+static void UART_CMD_ApplyPinAction(const LED_HandleTypeDef *led, LedPinAction_t action);
 
 /**
  * @brief Initialize UART command handler
@@ -42,9 +45,7 @@ HAL_StatusTypeDef UART_CMD_RegisterLED(UART_CommandTypeDef *handler, GPIO_TypeDe
   
   handler->leds[handler->led_count].port = port;
   handler->leds[handler->led_count].pin = pin;
-  handler->leds[handler->led_count].state = LED_OFF;
-  handler->leds[handler->led_count].blink_count = 0;
-  handler->leds[handler->led_count].blink_period = 100;
+  Led_Init(&handler->leds[handler->led_count].fsm);
 
   GPIO_InitTypeDef gpio = {0};
   gpio.Pin = pin;
@@ -101,51 +102,31 @@ void UART_CMD_ReceiveCallback(UART_CommandTypeDef *handler, uint8_t data)
 static void UART_CMD_ParseCommand(UART_CommandTypeDef *handler, const char *cmd)
 {
   char response[128];
-  
-  if (strncmp(cmd, "LED", 3) == 0) {
-    /* LED command: LED<N> <ON|OFF|TOGGLE> */
-    int led_num = (int)(cmd[3] - '0');
-    if ((cmd[3] < '0') || (cmd[3] > '9') ||
-        (led_num < 0) || (led_num >= (int)handler->led_count)) {
-      UART_CMD_SendResponse(handler, "ERROR: Invalid LED\r\n");
-      return;
-    }
-    
-    if (strstr(cmd, "ON") != NULL) {
-      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_ON);
-      snprintf(response, sizeof(response), "LED%d: ON\r\n", led_num);
-    } else if (strstr(cmd, "OFF") != NULL) {
-      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_OFF);
-      snprintf(response, sizeof(response), "LED%d: OFF\r\n", led_num);
-    } else if (strstr(cmd, "FAST") != NULL) {
-      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_BLINK_FAST);
-      snprintf(response, sizeof(response), "LED%d: BLINK FAST\r\n", led_num);
-    } else if (strstr(cmd, "BLINK") != NULL) {
-      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_BLINK_SLOW);
-      snprintf(response, sizeof(response), "LED%d: BLINK\r\n", led_num);
-    } else if (strstr(cmd, "TOGGLE") != NULL) {
-      UART_CMD_SetLEDState(handler, (uint8_t)led_num, LED_TOGGLE);
-      snprintf(response, sizeof(response), "LED%d: TOGGLE\r\n", led_num);
-    } else {
-      UART_CMD_SendResponse(handler, "ERROR: Invalid command\r\n");
-      return;
-    }
-    UART_CMD_SendResponse(handler, response);
-  } else if (strncmp(cmd, "STATUS", 6) == 0) {
-    /* Get status */
-    UART_CMD_GetStatus(handler, response);
-    UART_CMD_SendResponse(handler, response);
-  } else if (strncmp(cmd, "BLE", 3) == 0) {
-    snprintf(response, sizeof(response), "BLE status: %d\r\n", (int)BLE_App_GetStatus());
-    UART_CMD_SendResponse(handler, response);
-  } else if (strncmp(cmd, "HELP", 4) == 0) {
-    UART_CMD_SendResponse(handler, "Commands:\r\n");
-    UART_CMD_SendResponse(handler, "  LED<N> ON/OFF/TOGGLE/BLINK/FAST\r\n");
-    UART_CMD_SendResponse(handler, "  BLE   (status)\r\n");
-    UART_CMD_SendResponse(handler, "  STATUS\r\n");
-    UART_CMD_SendResponse(handler, "  HELP\r\n");
-  } else {
-    UART_CMD_SendResponse(handler, "ERROR: Unknown command\r\n");
+  const Cmd_t parsed = Cmd_Parse(cmd, handler->led_count);
+
+  switch (parsed.kind) {
+    case CMD_LED:
+      UART_CMD_SetLEDState(handler, parsed.led_index, parsed.action);
+      (void)Cmd_FormatLedReply(response, sizeof(response), parsed.led_index, parsed.action);
+      UART_CMD_SendResponse(handler, response);
+      break;
+    case CMD_STATUS:
+      UART_CMD_GetStatus(handler, response);
+      UART_CMD_SendResponse(handler, response);
+      break;
+    case CMD_BLE:
+      (void)Cmd_FormatBleStatus(response, sizeof(response), (unsigned)BLE_App_GetStatus());
+      UART_CMD_SendResponse(handler, response);
+      break;
+    case CMD_HELP:
+      for (unsigned i = 0U; Cmd_HelpLine(i) != NULL; i++) {
+        UART_CMD_SendResponse(handler, Cmd_HelpLine(i));
+      }
+      break;
+    default:
+      /* CMD_INVALID_LED, CMD_INVALID_ACTION, CMD_UNKNOWN */
+      UART_CMD_SendResponse(handler, Cmd_ErrorText(parsed.kind));
+      break;
   }
 }
 
@@ -166,21 +147,24 @@ void UART_CMD_UpdateLEDs(UART_CommandTypeDef *handler)
 {
   for (uint8_t i = 0U; i < handler->led_count; i++) {
     LED_HandleTypeDef *led = &handler->leds[i];
-    
-    if (led->state == LED_ON) {
-      HAL_GPIO_WritePin(led->port, led->pin, GPIO_PIN_SET);
-    } else if (led->state == LED_OFF) {
-      HAL_GPIO_WritePin(led->port, led->pin, GPIO_PIN_RESET);
-    } else if (led->state == LED_TOGGLE) {
-      HAL_GPIO_TogglePin(led->port, led->pin);
-      led->state = LED_OFF;  /* Reset after toggle */
-    } else if (led->state == LED_BLINK_SLOW || led->state == LED_BLINK_FAST) {
-      /* blink_count holds the tick of the last toggle; blink_period is the half period in ms */
-      if ((HAL_GetTick() - led->blink_count) >= led->blink_period) {
-        HAL_GPIO_TogglePin(led->port, led->pin);
-        led->blink_count = HAL_GetTick();
-      }
-    }
+
+    UART_CMD_ApplyPinAction(led, Led_Update(&led->fsm, HAL_GetTick()));
+  }
+}
+
+/**
+ * @brief Do to the LED pin what the state machine decided
+ */
+static void UART_CMD_ApplyPinAction(const LED_HandleTypeDef *led, LedPinAction_t action)
+{
+  if (action == LED_PIN_HIGH) {
+    HAL_GPIO_WritePin(led->port, led->pin, GPIO_PIN_SET);
+  } else if (action == LED_PIN_LOW) {
+    HAL_GPIO_WritePin(led->port, led->pin, GPIO_PIN_RESET);
+  } else if (action == LED_PIN_TOGGLE) {
+    HAL_GPIO_TogglePin(led->port, led->pin);
+  } else {
+    /* LED_PIN_HOLD: leave the pin alone */
   }
 }
 
@@ -190,24 +174,11 @@ void UART_CMD_UpdateLEDs(UART_CommandTypeDef *handler)
 void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_StateTypeDef state)
 {
   if (led_index >= handler->led_count) { return; }
-  
+
   LED_HandleTypeDef *led = &handler->leds[led_index];
-  led->state = state;
-  
-  if (state == LED_ON) {
-    HAL_GPIO_WritePin(led->port, led->pin, GPIO_PIN_SET);
-  } else if (state == LED_OFF) {
-    HAL_GPIO_WritePin(led->port, led->pin, GPIO_PIN_RESET);
-  } else if (state == LED_TOGGLE) {
-    HAL_GPIO_TogglePin(led->port, led->pin);
-    led->state = (HAL_GPIO_ReadPin(led->port, led->pin) == GPIO_PIN_SET) ? LED_ON : LED_OFF;
-  } else if (state == LED_BLINK_SLOW) {
-    led->blink_period = 500U;  /* toggle every 500 ms */
-    led->blink_count = HAL_GetTick();
-  } else if (state == LED_BLINK_FAST) {
-    led->blink_period = 100U;  /* toggle every 100 ms */
-    led->blink_count = HAL_GetTick();
-  }
+  const bool pin_high = (HAL_GPIO_ReadPin(led->port, led->pin) == GPIO_PIN_SET);
+
+  UART_CMD_ApplyPinAction(led, Led_Set(&led->fsm, state, HAL_GetTick(), pin_high));
 }
 
 /**
@@ -215,32 +186,12 @@ void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_S
  */
 static void UART_CMD_GetStatus(const UART_CommandTypeDef *handler, char *status_str)
 {
-  char led_status[96] = "";
-  size_t used = 0U;
+  LED_StateTypeDef states[sizeof(handler->leds) / sizeof(handler->leds[0])];
 
+  (void)memset(states, 0, sizeof(states));   /* all LED_OFF; only led_count entries are used */
   for (uint8_t i = 0U; i < handler->led_count; i++) {
-    char buf[24];
-    const char *state_str;
-    
-    switch (handler->leds[i].state) {
-      case LED_ON: state_str = "ON"; break;
-      case LED_OFF: state_str = "OFF"; break;
-      case LED_TOGGLE: state_str = "TOGGLE"; break;
-      case LED_BLINK_SLOW: state_str = "BLINK_SLOW"; break;
-      case LED_BLINK_FAST: state_str = "BLINK_FAST"; break;
-      default: state_str = "UNKNOWN"; break;
-    }
-    
-    int len = snprintf(buf, sizeof(buf), "LED%u: %s\r\n", (unsigned)i, state_str);
-    if ((len > 0) && ((size_t)len < sizeof(buf)) && (used < sizeof(led_status)))
-    {
-      int appended = snprintf(&led_status[used], sizeof(led_status) - used, "%s", buf);
-      if ((appended > 0) && ((size_t)appended < (sizeof(led_status) - used)))
-      {
-        used += (size_t)appended;
-      }
-    }
+    states[i] = handler->leds[i].fsm.state;
   }
-  
-  snprintf(status_str, 128, "=== Status ===\r\n%s", led_status);
+
+  (void)Cmd_FormatStatus(status_str, 128U, states, handler->led_count);
 }

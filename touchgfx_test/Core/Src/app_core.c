@@ -96,7 +96,7 @@ uint32_t AppCore_Heartbeat(void)
 void AppState_Get(AppState *out)
 {
   for (uint8_t i = 0; i < APP_LED_COUNT; i++) {
-    out->led[i] = (i < s_console.led_count) && (s_console.leds[i].state != LED_OFF);
+    out->led[i] = (i < s_console.led_count) && (s_console.leds[i].fsm.state != LED_OFF);
   }
   out->ble_status = (uint8_t)BLE_App_GetStatus();
   /* Use the RTOS clock for application uptime. It starts when ThreadX starts and
@@ -116,7 +116,7 @@ void AppState_SetLed(uint8_t idx, uint8_t on)
 void AppState_ToggleLed(uint8_t idx)
 {
   if (idx < s_console.led_count) {
-    AppState_SetLed(idx, s_console.leds[idx].state == LED_OFF);
+    AppState_SetLed(idx, s_console.leds[idx].fsm.state == LED_OFF);
   }
 }
 
