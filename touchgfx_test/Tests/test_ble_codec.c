@@ -397,7 +397,8 @@ void test_name_copy_and_advertising_element_match_the_original(void)
         TEST_ASSERT_EQUAL_UINT(
             name_length + 1U,
             BleCodec_LocalNameAd(actual_element, sizeof(actual_element), actual_name));
-        TEST_ASSERT_EQUAL_UINT8_ARRAY(expected_element, actual_element, name_length + 1U);
+        /* The whole buffer: bytes after the element must stay untouched (0xBB). */
+        TEST_ASSERT_EQUAL_UINT8_ARRAY(expected_element, actual_element, sizeof(expected_element));
     }
 }
 
