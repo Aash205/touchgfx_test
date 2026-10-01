@@ -18,14 +18,8 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
 
-/* Log Level Constants -------------------------------------------------------*/
-typedef enum {
-  LOG_LEVEL_DEBUG = 0,
-  LOG_LEVEL_INFO,
-  LOG_LEVEL_WARNING,
-  LOG_LEVEL_ERROR,
-  LOG_LEVEL_CRITICAL
-} LogLevelTypeDef;
+/* Log Level Constants: LogLevelTypeDef and LOG_LEVEL_* live in App/logic/log_format.h -----*/
+#include "log_format.h"
 
 /* USB Logging Handle --------------------------------------------------------*/
 typedef struct {

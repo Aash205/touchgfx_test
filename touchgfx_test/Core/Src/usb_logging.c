@@ -17,6 +17,7 @@
 #include "usb_logging.h"
 #include "tx_api.h"
 #include "usb_cdc_log.h"
+#include "timeouts.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,10 +41,7 @@ static USB_LoggingTypeDef usb_logging = {
 
 static ULONG log_timeout_ticks(void)
 {
-  ULONG ticks = (ULONG)(((uint64_t)LOG_MUTEX_TIMEOUT_MS *
-                         (uint64_t)TX_TIMER_TICKS_PER_SECOND + 999ULL) / 1000ULL);
-
-  return ticks;
+  return (ULONG)Timeout_MsToTicks(LOG_MUTEX_TIMEOUT_MS, TX_TIMER_TICKS_PER_SECOND);
 }
 
 /**
@@ -77,11 +75,10 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
 {
   va_list args;
   char log_buffer[256];
-  const char *level_str;
   int written;
   int result = -1;
   
-  if (level < usb_logging.log_level)
+  if (!LogFormat_ShouldLog(level, usb_logging.log_level))
   {
     result = 0;
   }
@@ -91,15 +88,6 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
   }
   else
   {
-    switch (level) {
-      case LOG_LEVEL_DEBUG: level_str = "[DEBUG]"; break;
-      case LOG_LEVEL_INFO: level_str = "[INFO]"; break;
-      case LOG_LEVEL_WARNING: level_str = "[WARN]"; break;
-      case LOG_LEVEL_ERROR: level_str = "[ERROR]"; break;
-      case LOG_LEVEL_CRITICAL: level_str = "[CRIT]"; break;
-      default: level_str = "[?]"; break;
-    }
-
     va_start(args, format);
     written = vsnprintf(log_buffer, sizeof(log_buffer) - 20U, format, args);
     va_end(args);
@@ -107,20 +95,11 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
     if (written > 0)
     {
       char formatted[256];
-      uint32_t ms = HAL_GetTick();
-      int len = snprintf(formatted, sizeof(formatted), "%s [%04lu.%03lu] %s\r\n",
-                         level_str,
-                         (unsigned long)(ms / 1000U),
-                         (unsigned long)(ms % 1000U),
-                         log_buffer);
+      size_t transmitted = LogFormat_Line(formatted, sizeof(formatted), level, HAL_GetTick(),
+                                          log_buffer);
 
-      if (len > 0)
+      if (transmitted > 0U)
       {
-        size_t transmitted = (size_t)len;
-        if (transmitted >= sizeof(formatted))
-        {
-          transmitted = sizeof(formatted) - 1U;
-        }
         (void)USB_Logging_SendRaw((const uint8_t *)formatted, (uint16_t)transmitted);
         usb_logging.log_count++;
         result = (int)transmitted;

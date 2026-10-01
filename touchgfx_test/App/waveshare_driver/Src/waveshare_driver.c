@@ -8,6 +8,7 @@
 #include "waveshare_driver.h"
 #include "main.h"
 #include "tx_api.h"
+#include "timeouts.h"
 #include <stddef.h>
 
 extern SPI_HandleTypeDef hspi2;
@@ -149,16 +150,11 @@ static WS169_Status_t ws169_status_from_hal(HAL_StatusTypeDef hal_status, bool d
 
 static ULONG ws169_timeout_ticks(void)
 {
-    uint64_t ticks = ((uint64_t)s_config.data_timeout_ms *
-                      (uint64_t)TX_TIMER_TICKS_PER_SECOND + 999ULL) / 1000ULL;
+    uint32_t ticks = Timeout_MsToTicks(s_config.data_timeout_ms, TX_TIMER_TICKS_PER_SECOND);
 
-    if (ticks == 0ULL)
+    if (ticks == 0U)
     {
-        ticks = 1ULL;
-    }
-    if (ticks > (uint64_t)0xFFFFFFFFUL)
-    {
-        ticks = (uint64_t)0xFFFFFFFFUL;
+        ticks = 1U;
     }
 
     return (ULONG)ticks;
