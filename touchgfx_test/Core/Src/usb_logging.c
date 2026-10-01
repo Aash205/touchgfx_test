@@ -39,10 +39,8 @@ static USB_LoggingTypeDef usb_logging = {
   .log_count = 0
 };
 
-static ULONG log_timeout_ticks(void)
-{
-  return (ULONG)Timeout_MsToTicks(LOG_MUTEX_TIMEOUT_MS, TX_TIMER_TICKS_PER_SECOND);
-}
+/* Converted once in USB_Logging_Init, before log_mutex_ready is set. */
+static ULONG log_mutex_ticks;
 
 /**
  * @brief Initialize USB logging
@@ -55,6 +53,7 @@ int USB_Logging_Init(void)
   usb_logging.log_count = 0;
   
   if (log_mutex_ready == 0U) {
+    log_mutex_ticks = (ULONG)Timeout_MsToTicks(LOG_MUTEX_TIMEOUT_MS, TX_TIMER_TICKS_PER_SECOND);
     if (tx_mutex_create(&log_mutex, log_mutex_name, TX_INHERIT) != TX_SUCCESS)
     {
       status = -1;
@@ -129,7 +128,7 @@ int USB_Logging_SendRaw(const uint8_t *data, uint16_t size)
     /* The mutex only exists once the kernel runs; before that there is a single context. */
     if ((log_mutex_ready != 0U) && (tx_thread_identify() != NULL))
     {
-      lock_status = tx_mutex_get(&log_mutex, log_timeout_ticks());
+      lock_status = tx_mutex_get(&log_mutex, log_mutex_ticks);
       if (lock_status == TX_SUCCESS)
       {
         locked = 1U;
