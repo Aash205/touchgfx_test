@@ -29,6 +29,7 @@ function(add_unit_test name)
 endfunction()
 
 add_unit_test(test_ble_codec)
+add_unit_test(test_led_fsm)
 add_unit_test(test_log_format)
 add_unit_test(test_ring)
 add_unit_test(test_timeouts)

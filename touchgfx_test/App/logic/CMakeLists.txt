@@ -3,6 +3,7 @@
 # one fails to compile in both the firmware build and the unit-test build.
 add_library(app_logic STATIC
     ble_codec.c
+    led_fsm.c
     log_format.c
     ring.c
     timeouts.c
