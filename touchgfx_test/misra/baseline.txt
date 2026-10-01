@@ -1,5 +1,5 @@
 # Lint baseline: finding counts per rule from scripts/lint_counts.sh
-# Recorded after step 8 (text_writer, ui_format, change_detect extracted into App/logic). Compare, do not edit by hand.
+# Recorded after step 9 (ble_fsm, ble_sync, table_dispatch extracted into App/logic). Compare, do not edit by hand.
      18 misra-c2012-17.7
      11 misra-c2012-8.9
      11 misra-c2012-15.5

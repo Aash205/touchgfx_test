@@ -168,9 +168,9 @@ Peripherals: SPI2 (LCD), SPI1 (BlueNRG-2), LPUART1 (console), DMA1, DMA2D, CRC, 
 | `Core/Src/app_threadx.c` | VSYNC timer, threads, UART RX callbacks |
 | `Core/Src/dma2d.c` | DMA2D init for TouchGFX |
 | `Core/Src/app_core.c` | shared `AppState`, LED/console ownership, user button (`App/logic/debounce`, `App/logic/counters`) |
-| `Core/Src/ble_app.c` | BlueNRG-2 init, advertising, event dispatch, GATT service (byte layouts in `App/logic/ble_codec`) |
+| `Core/Src/ble_app.c` | BlueNRG-2 init, advertising, event dispatch, GATT service (byte layouts in `App/logic/ble_codec`, status and timing decisions in `ble_fsm` and `ble_sync`, event table lookup in `table_dispatch`) |
 | `Core/Src/uart_commands.c` | console line handling and LED pins (parsing and replies in `App/logic/cmd_parse`, LED states in `App/logic/led_fsm`) |
-| `App/logic/**` | pure, unit-tested logic (`ble_codec`, `change_detect`, `cmd_parse`, `counters`, `debounce`, `led_fsm`, `log_format`, `ring`, `text_writer`, `timeouts`, `uart_line`, `ui_format`, `ws169_geometry`); standard library only |
+| `App/logic/**` | pure, unit-tested logic (`ble_codec`, `ble_fsm`, `ble_sync`, `change_detect`, `cmd_parse`, `counters`, `debounce`, `led_fsm`, `log_format`, `ring`, `table_dispatch`, `text_writer`, `timeouts`, `uart_line`, `ui_format`, `ws169_geometry`); standard library only |
 | `Tests/**` | unit tests (Unity) for `App/logic`; run `scripts/unit-test.sh` |
 | `Core/Src/usb_logging.c`, `usb_cdc_log.c` | log sink (LPUART1 + USB CDC, buffered by `App/logic/ring`, formatted by `App/logic/log_format`) |
 
