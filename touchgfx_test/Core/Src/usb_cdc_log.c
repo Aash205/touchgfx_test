@@ -6,6 +6,7 @@
   */
 
 #include "usb_cdc_log.h"
+#include "ring.h"
 #include "ux_api.h"
 #include "ux_device_class_cdc_acm.h"
 
@@ -19,9 +20,10 @@ static UX_SLAVE_CLASS_CDC_ACM *volatile s_cdc;
 static volatile UINT s_configured;
 static volatile UINT s_port_open;
 
-static unsigned char s_ring[RING_SIZE];
-static volatile unsigned s_head;   /* written by producers */
-static volatile unsigned s_tail;   /* written by the drain thread */
+_Static_assert((RING_SIZE & (RING_SIZE - 1U)) == 0U, "RING_SIZE must be a power of two");
+static unsigned char s_ring_storage[RING_SIZE];
+/* Statically initialised: log writes can arrive before UsbCdcLog_Init() runs. */
+static Ring_t s_ring = RING_INITIALIZER(s_ring_storage);   /* producers push, the drain thread pops */
 
 static TX_THREAD s_thread;
 static ULONG s_stack[DRAIN_STACK_BYTES / sizeof(ULONG)];
@@ -70,12 +72,7 @@ unsigned UsbCdcLog_Write(const unsigned char *data, unsigned size)
   if ((data != UX_NULL) && (size > 0U))
   {
     TX_DISABLE
-    while ((n < size) && ((s_head - s_tail) < RING_SIZE))
-    {
-      s_ring[s_head & (RING_SIZE - 1U)] = data[n];
-      n++;
-      s_head++;
-    }
+    n = Ring_Push(&s_ring, data, size);
     TX_RESTORE
   }
 
@@ -111,12 +108,7 @@ static VOID drain_entry(ULONG input)
       continue;
     }
 
-    while ((s_tail != s_head) && (n < (unsigned)sizeof(chunk)))
-    {
-      chunk[n] = s_ring[s_tail & (RING_SIZE - 1U)];
-      n++;
-      s_tail++;
-    }
+    n = Ring_Pop(&s_ring, chunk, (unsigned)sizeof(chunk));
 
     if ((n > 0U) && (s_port_open != 0U) && (s_cdc != UX_NULL))
     {
@@ -125,7 +117,7 @@ static VOID drain_entry(ULONG input)
       (void)write_status; /* A failed CDC write drops this best-effort log chunk. */
     }
 
-    if (s_tail == s_head)
+    if (Ring_Count(&s_ring) == 0U)
     {
       (void)tx_thread_sleep(DRAIN_PERIOD_TICKS);
     }
