@@ -10,13 +10,13 @@ Firmware for an STM32L496ZG (Nucleo-144) running ThreadX with a TouchGFX UI on a
 
 | Area | Implementation |
 |---|---|
-| Display | ST7789V2 240x280 used in landscape 280x240, RGB565, SPI2 (`App/waveshare_driver/`) |
+| Display | ST7789V2 240x280 used in landscape 280x240, RGB565, SPI2 (`App/hw/waveshare_driver/`) |
 | GUI | TouchGFX 4.26, "Live Status" screen (`Screen1`, built in code), DMA2D (Chrom-ART) blits |
 | RTOS | ThreadX: TouchGFX (prio 5), BLE (10), UART command console (11), Monitor heartbeat (12), USB CDC log drain (14); 20 ms VSYNC timer |
 | BLE | BlueNRG-2 peripheral on SPI1 (prescaler 64), advertises `Nucleo-BLE-Demo`, re-advertises on disconnect |
 | Console | LPUART1 115200 8N1: LED control, status, BLE status, HELP |
 | Logging | `USB_Logging_*` mirrors to LPUART1 and a USBX CDC-ACM sink (a ring buffer drained by a thread; boot logs queue until a host opens the port) |
-| Shared state | `AppState` (`Core/Inc/app_state.h`); all LED sources (UART, BLE, B1 button, GUI) go through `AppState_SetLed()` in `Core/Src/app_core.c` |
+| Shared state | `AppState` (`App/hw/Inc/app_state.h`); all LED sources (UART, BLE, B1 button, GUI) go through `AppState_SetLed()` in `App/hw/Src/app_core.c` |
 
 ## Hardware and wiring
 
@@ -86,7 +86,7 @@ Work through the stages in order and stop at the first failure.
    |---|---|
    | Blank or white screen | CS/DC/RES wiring, 3.3 V supply |
    | Garbled or shifted image | Lower the SPI2 speed via the prescaler in `MX_SPI2_Init()` (`Core/Src/main.c`) |
-   | Colours swapped | Check the ST7789 MADCTL and pixel-format initialisation in `App/waveshare_driver/Src/waveshare_driver.c` |
+   | Colours swapped | Check the ST7789 MADCTL and pixel-format initialisation in `App/hw/waveshare_driver/Src/waveshare_driver.c` |
    | No console output at all | Attach a debugger and look for a HardFault (80 MHz clock setup, ThreadX start) |
 
 2. **Screen values.** Uptime ticks every second, FPS is above 0 while the UI redraws, and the
@@ -162,17 +162,18 @@ Peripherals: SPI2 (LCD), SPI1 (BlueNRG-2), LPUART1 (console), DMA1, DMA2D, CRC, 
 
 | File | Role |
 |---|---|
-| `App/waveshare_driver/**` | ST7789V2 driver and board SPI2/pin setup; pin macros `DISP_*` in `Core/Inc/main.h`; status mapping, wire bytes, flush plan and init table in `App/logic/ws169_*` |
+| `App/hw/waveshare_driver/**` | ST7789V2 driver and board SPI2/pin setup; pin macros `DISP_*` in `Core/Inc/main.h`; status mapping, wire bytes, flush plan and init table in `App/logic/ws169_*` |
 | `TouchGFX/target/TouchGFXHAL.cpp` | inits the panel, flushes dirty rows, `touchgfxSignalVSync()` |
 | `TouchGFX/gui/**` | screens, presenters, `Model`, custom widgets (user-owned); status texts from `App/logic/ui_format`, model polling from `App/logic/change_detect` |
-| `Core/Src/app_threadx.c` | VSYNC timer, threads, UART RX callbacks; health line from `App/logic/health_format` |
+| `Core/Src/app_threadx.c` | CubeMX ThreadX glue; its USER CODE is one include and one call, `AppTasks_Init()` |
+| `App/hw/Src/app_tasks.c` | VSYNC timer and the BLE, UART console and monitor threads; health line from `App/logic/health_format` |
 | `Core/Src/dma2d.c` | DMA2D init for TouchGFX |
-| `Core/Src/app_core.c` | shared `AppState`, LED/console ownership, user button (`App/logic/debounce`, `App/logic/counters`) |
-| `Core/Src/ble_app.c` | BlueNRG-2 init, advertising, event dispatch, GATT service (byte layouts in `App/logic/ble_codec`, status and timing decisions in `ble_fsm` and `ble_sync`, event table lookup in `table_dispatch`) |
-| `Core/Src/uart_commands.c` | console line handling and LED pins (parsing and replies in `App/logic/cmd_parse`, LED states in `App/logic/led_fsm`) |
+| `App/hw/Src/app_core.c` | shared `AppState`, LED/console ownership, user button, UART RX callbacks (`App/logic/debounce`, `App/logic/counters`) |
+| `App/hw/Src/ble_app.c` | BlueNRG-2 init, advertising, event dispatch, GATT service (byte layouts in `App/logic/ble_codec`, status and timing decisions in `ble_fsm` and `ble_sync`, event table lookup in `table_dispatch`) |
+| `App/hw/Src/uart_commands.c` | console line handling and LED pins (parsing and replies in `App/logic/cmd_parse`, LED states in `App/logic/led_fsm`) |
 | `App/logic/**` | pure, unit-tested logic (`ble_codec`, `ble_fsm`, `ble_sync`, `change_detect`, `cmd_parse`, `counters`, `debounce`, `health_format`, `led_fsm`, `log_format`, `ring`, `table_dispatch`, `text_writer`, `timeouts`, `uart_line`, `ui_format`, `ws169_flush`, `ws169_geometry`, `ws169_init`, `ws169_status`, `ws169_wire`); standard library only |
 | `Tests/**` | unit tests (Unity) for `App/logic`; run `scripts/unit-test.sh` |
-| `Core/Src/usb_logging.c`, `usb_cdc_log.c` | log sink (LPUART1 + USB CDC, buffered by `App/logic/ring`, formatted by `App/logic/log_format`) |
+| `App/hw/Src/usb_logging.c`, `usb_cdc_log.c` | log sink (LPUART1 + USB CDC, buffered by `App/logic/ring`, formatted by `App/logic/log_format`) |
 
 ## Changing the display pins or speed
 
@@ -228,7 +229,7 @@ then **Generate Code**. `Screen1` is built in code and is not touched by Designe
 
 **5. Build** with `cmake --build --preset Debug`.
 
-**App-owned (never regenerated):** `App/waveshare_driver/**`, `App/logic/**`, `Core/Src/{ble_app,uart_commands,usb_logging,usb_cdc_log,app_core}.c`, `Core/Inc/{app_state,app_core,usb_cdc_log,...}.h`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`. **Hooks in generated files** sit in USER CODE blocks: `app_threadx.c`, `stm32l4xx_it.c`, `ux_device_cdc_acm.c`, `app_azure_rtos_config.h`, `app_usbx_device.h`.
+**App-owned (never regenerated):** `App/hw/**` (hardware glue and the display driver), `App/logic/**`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`. **Hooks in generated files** sit in USER CODE blocks: `app_threadx.c`, `stm32l4xx_it.c`, `ux_device_cdc_acm.c`, `app_azure_rtos_config.h`, `app_usbx_device.h`.
 
 ## Known risks and gaps (as documented, not re-verified)
 

@@ -21,6 +21,13 @@ extern "C" {
 /** Create the drain thread. Call from App_ThreadX_Init(). */
 UINT UsbCdcLog_Init(void);
 
+/**
+ * Bind the USBX device controller to the USB peripheral and start it. Call once from the USBX
+ * device thread, after the USBX stack and the CDC class exist. Returns without starting the
+ * controller (and logs nothing) if the binding fails.
+ */
+void UsbCdcLog_StartDevice(void);
+
 /** Hooks: call from USBD_CDC_ACM_Activate / _Deactivate in ux_device_cdc_acm.c. */
 void UsbCdcLog_OnActivate(VOID *cdc_acm_instance);
 void UsbCdcLog_OnDeactivate(VOID *cdc_acm_instance);

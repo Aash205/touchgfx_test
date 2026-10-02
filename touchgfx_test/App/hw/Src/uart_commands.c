@@ -31,7 +31,7 @@ HAL_StatusTypeDef UART_CMD_Init(UART_CommandTypeDef *handler, UART_HandleTypeDef
   handler->rx_index = 0;
   handler->command_ready = 0;
   handler->led_count = 0;
-  memset(handler->rx_buffer, 0, sizeof(handler->rx_buffer));
+  (void)memset(handler->rx_buffer, 0, sizeof(handler->rx_buffer));
   return HAL_OK;
 }
 
@@ -40,22 +40,27 @@ HAL_StatusTypeDef UART_CMD_Init(UART_CommandTypeDef *handler, UART_HandleTypeDef
  */
 HAL_StatusTypeDef UART_CMD_RegisterLED(UART_CommandTypeDef *handler, GPIO_TypeDef *port, uint16_t pin)
 {
-  if (handler->led_count >= 4) return HAL_ERROR;
-  
-  handler->leds[handler->led_count].port = port;
-  handler->leds[handler->led_count].pin = pin;
-  Led_Init(&handler->leds[handler->led_count].fsm);
+  HAL_StatusTypeDef status = HAL_ERROR;
 
-  GPIO_InitTypeDef gpio = {0};
-  gpio.Pin = pin;
-  gpio.Mode = GPIO_MODE_OUTPUT_PP;
-  gpio.Pull = GPIO_NOPULL;
-  gpio.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(port, &gpio);
-  HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
-  handler->led_count++;
-  
-  return HAL_OK;
+  if (handler->led_count < 4U) {
+    GPIO_InitTypeDef gpio = {0};
+
+    handler->leds[handler->led_count].port = port;
+    handler->leds[handler->led_count].pin = pin;
+    Led_Init(&handler->leds[handler->led_count].fsm);
+
+    gpio.Pin = pin;
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    /* cppcheck-suppress misra-c2012-7.3 -- the HAL's GPIO_NOPULL constant */
+    gpio.Pull = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(port, &gpio);
+    HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
+    handler->led_count++;
+    status = HAL_OK;
+  }
+
+  return status;
 }
 
 /**
@@ -73,15 +78,18 @@ HAL_StatusTypeDef UART_CMD_StartListening(UART_CommandTypeDef *handler)
  */
 int UART_CMD_Process(UART_CommandTypeDef *handler)
 {
-  if (!handler->command_ready) return 1;
+  int result = 1;
 
-  (void)USB_Logging_Printf(LOG_LEVEL_DEBUG, "LPUART1 command received: %s", handler->rx_buffer);
-  UART_CMD_ParseCommand(handler, handler->rx_buffer);
-  handler->rx_index = 0;
-  memset(handler->rx_buffer, 0, sizeof(handler->rx_buffer));
-  handler->command_ready = 0;   /* release the buffer to the RX interrupt last */
-  
-  return 0;
+  if (handler->command_ready != 0U) {
+    (void)USB_Logging_Printf(LOG_LEVEL_DEBUG, "LPUART1 command received: %s", handler->rx_buffer);
+    UART_CMD_ParseCommand(handler, handler->rx_buffer);
+    handler->rx_index = 0;
+    (void)memset(handler->rx_buffer, 0, sizeof(handler->rx_buffer));
+    handler->command_ready = 0;   /* release the buffer to the RX interrupt last */
+    result = 0;
+  }
+
+  return result;
 }
 
 /**
@@ -176,12 +184,12 @@ static void UART_CMD_ApplyPinAction(const LED_HandleTypeDef *led, LedPinAction_t
  */
 void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_StateTypeDef state)
 {
-  if (led_index >= handler->led_count) { return; }
+  if (led_index < handler->led_count) {
+    LED_HandleTypeDef *led = &handler->leds[led_index];
+    const bool pin_high = (HAL_GPIO_ReadPin(led->port, led->pin) == GPIO_PIN_SET);
 
-  LED_HandleTypeDef *led = &handler->leds[led_index];
-  const bool pin_high = (HAL_GPIO_ReadPin(led->port, led->pin) == GPIO_PIN_SET);
-
-  UART_CMD_ApplyPinAction(led, Led_Set(&led->fsm, state, HAL_GetTick(), pin_high));
+    UART_CMD_ApplyPinAction(led, Led_Set(&led->fsm, state, HAL_GetTick(), pin_high));
+  }
 }
 
 /**

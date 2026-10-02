@@ -45,6 +45,9 @@ typedef struct {
  */
 BLE_StatusTypeDef BLE_App_Init(void);
 
+/** Drive the BlueNRG chip-select inactive. Called from main() before the RTOS starts. */
+void BLE_App_Deselect(void);
+
 /**
  * @brief Start BLE advertising
  * @param device_name: Device name to advertise

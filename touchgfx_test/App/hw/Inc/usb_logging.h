@@ -21,14 +21,6 @@ extern "C" {
 /* Log Level Constants: LogLevelTypeDef and LOG_LEVEL_* live in App/logic/log_format.h -----*/
 #include "log_format.h"
 
-/* USB Logging Handle --------------------------------------------------------*/
-typedef struct {
-  uint8_t tx_buffer[512];
-  uint16_t tx_size;
-  LogLevelTypeDef log_level;
-  uint32_t log_count;
-} USB_LoggingTypeDef;
-
 /* Function Prototypes -------------------------------------------------------*/
 /**
  * @brief Initialize USB logging
@@ -51,17 +43,6 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...);
  * @retval Status
  */
 int USB_Logging_SendRaw(const uint8_t *data, uint16_t size);
-
-/**
- * @brief Log system status
- * @param status_str: Status string
- */
-int USB_Logging_LogStatus(const char *status_str);
-
-/**
- * @brief Flush log buffer
- */
-int USB_Logging_Flush(void);
 
 #ifdef __cplusplus
 }

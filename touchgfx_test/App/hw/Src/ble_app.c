@@ -10,6 +10,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "ble_app.h"
+#include "main.h"
 #include "usb_logging.h"
 #include "app_state.h"
 #include "ble_codec.h"
@@ -86,6 +87,12 @@ static void ble_dispatch(const hci_events_table_type *table, size_t count, uint1
 /**
  * @brief Initialize the BlueNRG-2: reset, GATT/GAP init, device name.
  */
+void BLE_App_Deselect(void)
+{
+  /* cppcheck-suppress misra-c2012-11.4 -- ble_cs_GPIO_Port is the HAL's fixed GPIO peripheral address */
+  HAL_GPIO_WritePin(ble_cs_GPIO_Port, ble_cs_Pin, GPIO_PIN_SET);
+}
+
 BLE_StatusTypeDef BLE_App_Init(void)
 {
   tBleStatus ret;

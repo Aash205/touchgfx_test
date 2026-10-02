@@ -8,8 +8,8 @@
   */
 /* USER CODE END Header */
 
-#ifndef __UART_COMMANDS_H__
-#define __UART_COMMANDS_H__
+#ifndef UART_COMMANDS_H
+#define UART_COMMANDS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -99,4 +99,4 @@ void UART_CMD_SetLEDState(UART_CommandTypeDef *handler, uint8_t led_index, LED_S
 }
 #endif
 
-#endif /* __UART_COMMANDS_H__ */
+#endif /* UART_COMMANDS_H */

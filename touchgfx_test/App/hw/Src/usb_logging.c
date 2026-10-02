@@ -15,6 +15,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "usb_logging.h"
+#include "app_board.h"
 #include "tx_api.h"
 #include "usb_cdc_log.h"
 #include "timeouts.h"
@@ -24,20 +25,14 @@
 #include <stddef.h>
 
 /* Private variables ---------------------------------------------------------*/
-extern UART_HandleTypeDef hlpuart1;
-
 #define LOG_UART_TIMEOUT_MS   100U
 #define LOG_MUTEX_TIMEOUT_MS  100U
 
+/* Every level is logged. */
+#define LOG_THRESHOLD LOG_LEVEL_DEBUG
+
 static TX_MUTEX log_mutex;
 static volatile uint8_t log_mutex_ready = 0;
-static CHAR log_mutex_name[] = {'L', 'o', 'g', ' ', 'm', 'u', 't', 'e', 'x', '\0'};
-
-static USB_LoggingTypeDef usb_logging = {
-  .tx_size = 0,
-  .log_level = LOG_LEVEL_DEBUG,
-  .log_count = 0
-};
 
 /* Converted once in USB_Logging_Init, before log_mutex_ready is set. */
 static ULONG log_mutex_ticks;
@@ -49,10 +44,9 @@ int USB_Logging_Init(void)
 {
   int status = 0;
 
-  usb_logging.tx_size = 0;
-  usb_logging.log_count = 0;
-  
   if (log_mutex_ready == 0U) {
+    static CHAR log_mutex_name[] = {'L', 'o', 'g', ' ', 'm', 'u', 't', 'e', 'x', '\0'};
+
     log_mutex_ticks = (ULONG)Timeout_MsToTicks(LOG_MUTEX_TIMEOUT_MS, TX_TIMER_TICKS_PER_SECOND);
     if (tx_mutex_create(&log_mutex, log_mutex_name, TX_INHERIT) != TX_SUCCESS)
     {
@@ -72,23 +66,24 @@ int USB_Logging_Init(void)
  */
 int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
 {
-  va_list args;
-  char log_buffer[256];
-  int written;
   int result = -1;
-  
-  if (!LogFormat_ShouldLog(level, usb_logging.log_level))
+
+  if (!LogFormat_ShouldLog(level, LOG_THRESHOLD))
   {
     result = 0;
   }
-  else if (format == NULL)
+  else if (format != NULL)
   {
-    result = -1;
-  }
-  else
-  {
+    char log_buffer[256];
+    int written;
+    /* cppcheck-suppress misra-c2012-17.1 -- a printf-style logging API is the point of this function */
+    va_list args;
+
+    /* cppcheck-suppress misra-c2012-17.1 -- see above */
     va_start(args, format);
+    /* cppcheck-suppress misra-c2012-21.6 -- vsnprintf formats the message into a bounded buffer */
     written = vsnprintf(log_buffer, sizeof(log_buffer) - 20U, format, args);
+    /* cppcheck-suppress misra-c2012-17.1 -- see above */
     va_end(args);
 
     if (written > 0)
@@ -100,10 +95,13 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
       if (transmitted > 0U)
       {
         (void)USB_Logging_SendRaw((const uint8_t *)formatted, (uint16_t)transmitted);
-        usb_logging.log_count++;
         result = (int)transmitted;
       }
     }
+  }
+  else
+  {
+    /* No format string: nothing to log. */
   }
 
   return result;
@@ -114,22 +112,17 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...)
  */
 int USB_Logging_SendRaw(const uint8_t *data, uint16_t size)
 {
-  HAL_StatusTypeDef uart_status;
-  UINT lock_status = TX_SUCCESS;
-  UINT unlock_status = TX_SUCCESS;
-  unsigned queued;
-  uint8_t locked = 0U;
-  uint8_t can_send = 0U;
-
   int result = -1;
 
   if ((data != NULL) && (size != 0U))
   {
+    uint8_t locked = 0U;
+    uint8_t can_send = 0U;
+
     /* The mutex only exists once the kernel runs; before that there is a single context. */
     if ((log_mutex_ready != 0U) && (tx_thread_identify() != NULL))
     {
-      lock_status = tx_mutex_get(&log_mutex, log_mutex_ticks);
-      if (lock_status == TX_SUCCESS)
+      if (tx_mutex_get(&log_mutex, log_mutex_ticks) == TX_SUCCESS)
       {
         locked = 1U;
         can_send = 1U;
@@ -142,15 +135,15 @@ int USB_Logging_SendRaw(const uint8_t *data, uint16_t size)
 
     if (can_send != 0U)
     {
-      queued = UsbCdcLog_Write(data, (unsigned)size);
-      uart_status = HAL_UART_Transmit(&hlpuart1, (uint8_t *)(uintptr_t)data,
-                                      size, LOG_UART_TIMEOUT_MS);
+      const unsigned queued = UsbCdcLog_Write(data, (unsigned)size);
+      /* cppcheck-suppress misra-c2012-11.4 -- HAL_UART_Transmit takes a non-const buffer; it only reads it */
+      const HAL_StatusTypeDef uart_status = HAL_UART_Transmit(&hlpuart1, (uint8_t *)(uintptr_t)data,
+                                                              size, LOG_UART_TIMEOUT_MS);
       result = ((queued == (unsigned)size) || (uart_status == HAL_OK)) ? (int)size : -1;
 
       if (locked != 0U)
       {
-        unlock_status = tx_mutex_put(&log_mutex);
-        if (unlock_status != TX_SUCCESS)
+        if (tx_mutex_put(&log_mutex) != TX_SUCCESS)
         {
           result = -1;
         }
@@ -158,20 +151,4 @@ int USB_Logging_SendRaw(const uint8_t *data, uint16_t size)
     }
   }
   return result;
-}
-
-/**
- * @brief Log system status
- */
-int USB_Logging_LogStatus(const char *status_str)
-{
-  return USB_Logging_Printf(LOG_LEVEL_INFO, "STATUS: %s", status_str);
-}
-
-/**
- * @brief Flush log buffer
- */
-int USB_Logging_Flush(void)
-{
-  return 0; /* UART sink is unbuffered */
 }

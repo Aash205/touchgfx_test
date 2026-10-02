@@ -6,9 +6,11 @@
   */
 
 #include "usb_cdc_log.h"
+#include "app_board.h"
 #include "ring.h"
 #include "ux_api.h"
 #include "ux_device_class_cdc_acm.h"
+#include "ux_dcd_stm32.h"
 
 #define RING_SIZE          2048U     /* power of two */
 #define DRAIN_STACK_BYTES  2048U
@@ -26,25 +28,45 @@ static unsigned char s_ring_storage[RING_SIZE];
 /* Statically initialised: log writes can arrive before UsbCdcLog_Init() runs. */
 static Ring_t s_ring = RING_INITIALIZER(s_ring_storage);   /* producers push, the drain thread pops */
 
-static TX_THREAD s_thread;
-static ULONG s_stack[DRAIN_STACK_BYTES / sizeof(ULONG)];
-static CHAR s_thread_name[] = {'U', 'S', 'B', ' ', 'C', 'D', 'C', ' ', 'l', 'o', 'g', '\0'};
-
 static VOID drain_entry(ULONG input);
 
 UINT UsbCdcLog_Init(void)
 {
+  /* ThreadX keeps pointers to these for the life of the program, so they are static. */
+  static TX_THREAD s_thread;
+  static ULONG s_stack[DRAIN_STACK_BYTES / sizeof(ULONG)];
+  static CHAR s_thread_name[] = {'U', 'S', 'B', ' ', 'C', 'D', 'C', ' ', 'l', 'o', 'g', '\0'};
+
   return tx_thread_create(&s_thread, s_thread_name, drain_entry, 0,
                           s_stack, sizeof(s_stack),
                           DRAIN_PRIORITY, DRAIN_PRIORITY, TX_NO_TIME_SLICE, TX_AUTO_START);
+}
+
+void UsbCdcLog_StartDevice(void)
+{
+  /* The PCD itself is initialized before ThreadX starts.  Complete the USBX
+     device-controller binding here, once the USBX stack and CDC class exist. */
+  (void)HAL_PCDEx_SetRxFiFo(&hpcd_USB_OTG_FS, 0x100U);
+  (void)HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 0U, 0x10U); /* EP0 control */
+  (void)HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 1U, 0x10U); /* EP1 CDC bulk IN */
+  (void)HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 2U, 0x20U); /* EP2 CDC notify IN */
+
+  /* cppcheck-suppress misra-c2012-11.4 -- USB_OTG_FS is the HAL's fixed peripheral address */
+  if (ux_dcd_stm32_initialize((ULONG)USB_OTG_FS, (ULONG)&hpcd_USB_OTG_FS) == (UINT)UX_SUCCESS)
+  {
+    (void)HAL_PCD_Start(&hpcd_USB_OTG_FS);
+  }
 }
 
 void UsbCdcLog_OnActivate(VOID *cdc_acm_instance)
 {
   ULONG timeout = WRITE_TIMEOUT_TICKS;
 
+  /* cppcheck-suppress misra-c2012-11.5 -- USBX hands the class instance over as VOID* */
   s_cdc = cdc_acm_instance;
-  ux_device_class_cdc_acm_ioctl(s_cdc, UX_SLAVE_CLASS_CDC_ACM_IOCTL_SET_WRITE_TIMEOUT, (VOID *)timeout);
+  (void)ux_device_class_cdc_acm_ioctl(s_cdc, UX_SLAVE_CLASS_CDC_ACM_IOCTL_SET_WRITE_TIMEOUT,
+                                      /* cppcheck-suppress misra-c2012-11.6 -- the USBX ioctl takes the timeout value in a VOID* argument */
+                                      (VOID *)timeout);
 
   /* Keep messages produced during boot. They are drained as soon as the host
      finishes enumeration and opens the CDC port. */
@@ -96,7 +118,7 @@ static VOID drain_entry(ULONG input)
       UX_SLAVE_CLASS_CDC_ACM_LINE_STATE_PARAMETER line_state = {0};
       if (ux_device_class_cdc_acm_ioctl(s_cdc,
                                         UX_SLAVE_CLASS_CDC_ACM_IOCTL_GET_LINE_STATE,
-                                        &line_state) == UX_SUCCESS)
+                                        &line_state) == (UINT)UX_SUCCESS)
       {
         s_port_open = line_state.ux_slave_class_cdc_acm_parameter_dtr ? 1U : 0U;
       }

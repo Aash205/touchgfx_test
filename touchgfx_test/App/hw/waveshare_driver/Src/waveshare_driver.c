@@ -58,10 +58,13 @@ WS169_Status_t WS169_InitBoard(WS169_Rotation_t rotation)
 {
     const WS169_Config_t config = {
         .spi = &hspi2,
+        /* cppcheck-suppress misra-c2012-11.4 -- HAL port macro (a fixed GPIO peripheral address) */
         .cs_port = DISP_CS_GPIO_Port,
         .cs_pin = DISP_CS_Pin,
+        /* cppcheck-suppress misra-c2012-11.4 -- HAL port macro (a fixed GPIO peripheral address) */
         .dc_port = DISP_DC_GPIO_Port,
         .dc_pin = DISP_DC_Pin,
+        /* cppcheck-suppress misra-c2012-11.4 -- HAL port macro (a fixed GPIO peripheral address) */
         .reset_port = DISP_RES_GPIO_Port,
         .reset_pin = DISP_RES_Pin,
         .command_timeout_ms = 100U,
@@ -210,6 +213,7 @@ static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
     {
         uint16_t chunk = (uint16_t)WS169_ChunkSize(remaining, 0xFFFFU);
         HAL_StatusTypeDef hal_status = HAL_SPI_Transmit(s_config.spi,
+                                                       /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit calls take a non-const buffer and only read it */
                                                        (uint8_t *)(uintptr_t)cursor,
                                                        chunk,
                                                        timeout_ms);
@@ -220,6 +224,7 @@ static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
             return status;
         }
 
+        /* cppcheck-suppress [misra-c2012-18.4, misra-c2012-10.3] -- walks the caller's buffer one chunk at a time */
         cursor += chunk;
         remaining -= chunk;
     }
@@ -653,6 +658,7 @@ static WS169_Status_t ws169_send_pixels(const uint16_t *pixels, uint16_t count)
     if ((!s_semaphore_ready) || (tx_thread_identify() == NULL))
     {
         hal_status = HAL_SPI_Transmit(s_config.spi,
+                                     /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit calls take a non-const buffer and only read it */
                                      (uint8_t *)(uintptr_t)pixels,
                                      count,
                                      s_config.data_timeout_ms);
@@ -670,6 +676,7 @@ static WS169_Status_t ws169_send_pixels(const uint16_t *pixels, uint16_t count)
 
     s_dma_state = WS169_DMA_PENDING;
     hal_status = HAL_SPI_Transmit_DMA(s_config.spi,
+                                     /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit calls take a non-const buffer and only read it */
                                      (uint8_t *)(uintptr_t)pixels,
                                      count);
     if (hal_status != HAL_OK)
@@ -739,16 +746,13 @@ WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
     }
     if (status == WS169_STATUS_OK)
     {
-        ws169_dc_data();
-        ws169_cs_low();
-        chip_selected = true;
-    }
-
-    if (status == WS169_STATUS_OK)
-    {
         WS169_FlushPlan_t plan;
         uint32_t offset = 0U;
         uint16_t count = 0U;
+
+        ws169_dc_data();
+        ws169_cs_low();
+        chip_selected = true;
 
         WS169_FlushPlanInit(&plan, framebuffer_stride_pixels, x, y, width, height);
         while ((status == WS169_STATUS_OK) && WS169_FlushPlanNext(&plan, &offset, &count))
@@ -844,7 +848,7 @@ void WS169_ClearDiagnostics(void)
     ws169_exit_critical(interrupt_state);
 }
 
-bool WS169_OnSpiTxComplete(SPI_HandleTypeDef *spi)
+static bool ws169_on_spi_tx_complete(const SPI_HandleTypeDef *spi)
 {
     if ((!s_config_valid) || (spi != s_config.spi) || (s_dma_state != WS169_DMA_PENDING))
     {
@@ -860,7 +864,7 @@ bool WS169_OnSpiTxComplete(SPI_HandleTypeDef *spi)
     return true;
 }
 
-bool WS169_OnSpiError(SPI_HandleTypeDef *spi)
+static bool ws169_on_spi_error(const SPI_HandleTypeDef *spi)
 {
     if ((!s_config_valid) || (spi != s_config.spi) || (s_dma_state != WS169_DMA_PENDING))
     {
@@ -877,12 +881,14 @@ bool WS169_OnSpiError(SPI_HandleTypeDef *spi)
     return true;
 }
 
+/* cppcheck-suppress constParameterPointer -- must match the HAL's weak callback prototype */
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-    (void)WS169_OnSpiTxComplete(hspi);
+    (void)ws169_on_spi_tx_complete(hspi);
 }
 
+/* cppcheck-suppress constParameterPointer -- must match the HAL's weak callback prototype */
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 {
-    (void)WS169_OnSpiError(hspi);
+    (void)ws169_on_spi_error(hspi);
 }

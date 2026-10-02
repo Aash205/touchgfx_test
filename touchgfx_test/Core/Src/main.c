@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "ble_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -118,7 +118,7 @@ int main(void)
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
   /* Keep the BlueNRG-M2SP deselected while the RTOS and BLE thread start. */
-  HAL_GPIO_WritePin(ble_cs_GPIO_Port, ble_cs_Pin, GPIO_PIN_SET);
+  BLE_App_Deselect();
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();

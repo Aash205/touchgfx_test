@@ -21,10 +21,6 @@ void AppCore_Init(UART_HandleTypeDef *console_uart);
 /** Console line processing + LED blinking + user-button poll. Call every ~20 ms. */
 void AppCore_Process(void);
 
-/** Forward HAL_UART_RxCpltCallback / ErrorCallback here. */
-void AppCore_UartRxCplt(UART_HandleTypeDef *huart);
-void AppCore_UartError(UART_HandleTypeDef *huart);
-
 /** Once per second from the monitor thread: refreshes the FPS figure. */
 void AppCore_Tick1s(void);
 

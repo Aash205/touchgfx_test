@@ -85,10 +85,6 @@ WS169_Status_t WS169_GetLastStatus(void);
 void WS169_GetDiagnostics(WS169_Diagnostics_t *diagnostics);
 void WS169_ClearDiagnostics(void);
 
-/** HAL callback dispatchers. Return true when the callback belongs to this driver. */
-bool WS169_OnSpiTxComplete(SPI_HandleTypeDef *spi);
-bool WS169_OnSpiError(SPI_HandleTypeDef *spi);
-
 #ifdef __cplusplus
 }
 #endif

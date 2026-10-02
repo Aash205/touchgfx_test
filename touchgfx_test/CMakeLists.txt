@@ -54,6 +54,14 @@ add_subdirectory(App/logic)
 # This is done here, in the user-owned file, because cmake/touchgfx/CMakeLists.txt is regenerated.
 target_link_libraries(TouchGFX PUBLIC app_logic)
 
+# Hardware glue (HAL, ThreadX, USBX, BlueNRG calls). The TouchGFX GUI includes app_state.h and
+# waveshare_driver.h from here, so its object library needs the same include paths.
+set(APP_HW_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hw/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hw/waveshare_driver/Inc
+)
+target_include_directories(TouchGFX PUBLIC ${APP_HW_INCLUDE_DIRS})
+
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
@@ -62,12 +70,13 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    App/waveshare_driver/Src/waveshare_driver.c # ST7789V2 library, SPI2 + DMA + diagnostics
-    Core/Src/ble_app.c          # BlueNRG-2 peripheral
-    Core/Src/uart_commands.c    # LPUART1 command console
-    Core/Src/usb_logging.c      # USBX CDC-ACM diagnostics sink
-    Core/Src/app_core.c         # shared AppState, LED/console owner, user button
-    Core/Src/usb_cdc_log.c      # USB CDC log sink (inert until the USB device is enabled)
+    App/hw/waveshare_driver/Src/waveshare_driver.c # ST7789V2 library, SPI2 + DMA + diagnostics
+    App/hw/Src/app_tasks.c      # ThreadX timer and threads (called from app_threadx.c)
+    App/hw/Src/ble_app.c        # BlueNRG-2 peripheral
+    App/hw/Src/uart_commands.c  # LPUART1 command console
+    App/hw/Src/usb_logging.c    # USBX CDC-ACM diagnostics sink
+    App/hw/Src/app_core.c       # shared AppState, LED/console owner, user button
+    App/hw/Src/usb_cdc_log.c    # USB CDC log sink (inert until the USB device is enabled)
 )
 
 # STM32 USBX device-controller bridge fallback. New CubeMX generations include
@@ -85,7 +94,7 @@ endif()
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
-    App/waveshare_driver/Inc
+    ${APP_HW_INCLUDE_DIRS}
 )
 
 # Add project symbols (macros)

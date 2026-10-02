@@ -23,11 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "main.h"
-#include "ux_dcd_stm32.h"
-
-extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
-
+#include "usb_cdc_log.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -196,23 +192,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
   /* USER CODE BEGIN app_ux_device_thread_entry */
   TX_PARAMETER_NOT_USED(thread_input);
 
-  /* The PCD itself is initialized before ThreadX starts.  Complete the USBX
-     device-controller binding here, once the USBX stack and CDC class exist. */
-  HAL_PCDEx_SetRxFiFo(&hpcd_USB_OTG_FS, 0x100U);
-  HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 0U, 0x10U); /* EP0 control */
-  HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 1U, 0x10U); /* EP1 CDC bulk IN */
-  HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 2U, 0x20U); /* EP2 CDC notify IN */
-
-  if (ux_dcd_stm32_initialize((ULONG)USB_OTG_FS,
-                              (ULONG)&hpcd_USB_OTG_FS) != UX_SUCCESS)
-  {
-    return;
-  }
-
-  if (HAL_PCD_Start(&hpcd_USB_OTG_FS) != HAL_OK)
-  {
-    return;
-  }
+  UsbCdcLog_StartDevice();
   /* USER CODE END app_ux_device_thread_entry */
 }
 
