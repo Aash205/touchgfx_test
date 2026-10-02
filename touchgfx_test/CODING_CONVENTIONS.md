@@ -55,7 +55,8 @@ other CubeMX files stay excluded whole (`misra/exclude-paths.txt`).
 - `.c`/`.h`: real MISRA C:2012 via Cppcheck (`misra.py`). Findings cite real rule numbers.
 - `.cpp`/`.hpp`: best-effort MISRA C++ approximation via `.clang-tidy` — not certified, no
   real rule numbers.
-- Deviations: `App/logic` has none. In `App/hw` each deviation is an inline
+- Deviations: `App/logic` has no inline ones (it only takes the path-scoped entries in
+  `misra/suppressions.txt` for API that lands before its callers). In `App/hw` each deviation is an inline
   `/* cppcheck-suppress [rule] -- reason */` comment above the flagged line, except three
   whole-program checks and the display driver's advisory 15.5, which `misra/suppressions.txt`
   scopes to that directory with the reason beside them.

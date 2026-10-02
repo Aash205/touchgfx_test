@@ -8,11 +8,12 @@
 # Prefer an inline "/* cppcheck-suppress [id] -- reason */" comment above the flagged line
 # over an entry here: line-number entries break on every edit.
 
-# App/hw: three whole-program checks cannot be judged one translation unit at a time. Functions
-# here are called from the CubeMX files, the USBX files and the TouchGFX C++ sources, none of which
-# are lint targets, and the HAL's weak callback hooks are never called from C at all. So 'never
-# used', 'could be static' and 'external linkage but referenced once' are expected for the hardware
-# glue. Every other rule applies, and each deviation is an inline cppcheck-suppress with a reason.
+# App/hw: three whole-program checks are judged one translation unit at a time, and much of the
+# hardware glue is called from files that are not lint targets (the USBX and TouchGFX sources, the
+# HAL's weak callback hooks) or by nothing yet (ten display-driver functions kept as a library API:
+# reset, rotation, sleep, window, status and diagnostics accessors). So 'never used', 'could be
+# static' and 'external linkage but referenced once' are not reliable there. Every other rule
+# applies, and each deviation is an inline cppcheck-suppress with a reason.
 unusedFunction:*/App/hw/*
 misra-c2012-8.7:*/App/hw/*
 staticFunction:*/App/hw/*

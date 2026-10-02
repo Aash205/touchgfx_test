@@ -229,7 +229,7 @@ then **Generate Code**. `Screen1` is built in code and is not touched by Designe
 
 **5. Build** with `cmake --build --preset Debug`.
 
-**App-owned (never regenerated):** `App/hw/**` (hardware glue and the display driver), `App/logic/**`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`. **Hooks in generated files** sit in USER CODE blocks: `app_threadx.c`, `stm32l4xx_it.c`, `ux_device_cdc_acm.c`, `app_azure_rtos_config.h`, `app_usbx_device.h`.
+**App-owned (never regenerated):** `App/hw/**` (hardware glue and the display driver), `App/logic/**`, `linker/*.ld`, `TouchGFX/target/TouchGFXHAL.cpp`, `TouchGFX/gui/**`, root `CMakeLists.txt`. **Hooks in generated files** sit in USER CODE blocks: `main.c` (`BLE_App_Deselect`), `app_threadx.c` (`AppTasks_Init`), `app_usbx_device.c` (`UsbCdcLog_StartDevice`), `stm32l4xx_it.c`, `ux_device_cdc_acm.c`, `app_azure_rtos_config.h`, `app_usbx_device.h`.
 
 ## Known risks and gaps (as documented, not re-verified)
 

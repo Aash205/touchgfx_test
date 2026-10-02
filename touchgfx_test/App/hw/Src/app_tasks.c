@@ -65,8 +65,7 @@ UINT AppTasks_Init(void)
     /* TouchGFX frame pacing. */
     if (ret == TX_SUCCESS)
     {
-        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes a non-const name
-         */
+        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes CHAR* names */
         ret = tx_timer_create(&vsync_timer, "TouchGFX VSync", vsync_timer_cb, 0,
                               TOUCHGFX_VSYNC_TICKS, TOUCHGFX_VSYNC_TICKS, TX_AUTO_ACTIVATE);
     }
@@ -76,8 +75,7 @@ UINT AppTasks_Init(void)
         /* LEDs (LD1 = PC7, LD3 = PB14), UART command console, user button, shared AppState. */
         AppCore_Init(&hlpuart1);
 
-        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes a non-const name
-         */
+        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes CHAR* names */
         ret = tx_thread_create(&thread_ble, "BLE", thread_ble_entry, 0, thread_ble_stack,
                                sizeof(thread_ble_stack), PRIO_BLE, PRIO_BLE, TX_NO_TIME_SLICE,
                                TX_AUTO_START);
@@ -85,8 +83,7 @@ UINT AppTasks_Init(void)
 
     if (ret == TX_SUCCESS)
     {
-        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes a non-const name
-         */
+        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes CHAR* names */
         ret = tx_thread_create(&thread_uart_cmd, "UART cmd", thread_uart_cmd_entry, 0,
                                thread_uart_cmd_stack, sizeof(thread_uart_cmd_stack), PRIO_UART,
                                PRIO_UART, TX_NO_TIME_SLICE, TX_AUTO_START);
@@ -94,8 +91,7 @@ UINT AppTasks_Init(void)
 
     if (ret == TX_SUCCESS)
     {
-        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes a non-const name
-         */
+        /* cppcheck-suppress [misra-c2012-7.4, misra-c2012-11.8] -- ThreadX takes CHAR* names */
         ret = tx_thread_create(&thread_monitor, "Monitor", thread_monitor_entry, 0,
                                thread_monitor_stack, sizeof(thread_monitor_stack), PRIO_MONITOR,
                                PRIO_MONITOR, TX_NO_TIME_SLICE, TX_AUTO_START);

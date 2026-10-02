@@ -51,7 +51,8 @@ void UsbCdcLog_StartDevice(void)
   (void)HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 1U, 0x10U); /* EP1 CDC bulk IN */
   (void)HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_FS, 2U, 0x20U); /* EP2 CDC notify IN */
 
-  /* cppcheck-suppress misra-c2012-11.4 -- USB_OTG_FS is the HAL's fixed peripheral address */
+  /* cppcheck-suppress misra-c2012-11.4 -- USB_OTG_FS is the HAL's fixed peripheral address, and
+     USBX takes the controller handle as an integer (ULONG) */
   if (ux_dcd_stm32_initialize((ULONG)USB_OTG_FS, (ULONG)&hpcd_USB_OTG_FS) == (UINT)UX_SUCCESS)
   {
     (void)HAL_PCD_Start(&hpcd_USB_OTG_FS);

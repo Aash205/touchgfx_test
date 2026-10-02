@@ -84,15 +84,16 @@ static void ble_apply(BleFsm_Event_t event);
 static void ble_dispatch(const hci_events_table_type *table, size_t count, uint16_t code,
                          uint8_t *data);
 
-/**
- * @brief Initialize the BlueNRG-2: reset, GATT/GAP init, device name.
- */
+/** @brief Drive the BlueNRG chip-select inactive (called from main() before the RTOS starts). */
 void BLE_App_Deselect(void)
 {
   /* cppcheck-suppress misra-c2012-11.4 -- ble_cs_GPIO_Port is the HAL's fixed GPIO peripheral address */
   HAL_GPIO_WritePin(ble_cs_GPIO_Port, ble_cs_Pin, GPIO_PIN_SET);
 }
 
+/**
+ * @brief Initialize the BlueNRG-2: reset, GATT/GAP init, device name.
+ */
 BLE_StatusTypeDef BLE_App_Init(void)
 {
   tBleStatus ret;
@@ -183,7 +184,6 @@ BLE_StatusTypeDef BLE_App_StartAdvertising(const char *device_name)
 /**
  * @brief Stop BLE advertising
  */
-/* cppcheck-suppress [staticFunction] -- public module API declared in ble_app.h */
 BLE_StatusTypeDef BLE_App_StopAdvertising(void)
 {
   BLE_StatusTypeDef result = BLE_APP_STATUS_INITIALIZED;
@@ -245,7 +245,6 @@ void BLE_App_Process(void)
 /**
  * @brief Send data over BLE (no application GATT service yet: not connected -> -1)
  */
-/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- public API placeholder declared in ble_app.h */
 int BLE_App_SendData(uint8_t *data, uint16_t size)
 {
   int result = -1;
@@ -429,7 +428,6 @@ static void ble_user_notify(void *pData)
 }
 
 /* HCI event callbacks (weak in the middleware) ------------------------------*/
-/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- weak-symbol override called from the excluded BlueNRG middleware */
 void hci_le_connection_complete_event(uint8_t Status, uint16_t Connection_Handle, uint8_t Role,
                                       uint8_t Peer_Address_Type, uint8_t Peer_Address[6],
                                       uint16_t Conn_Interval, uint16_t Conn_Latency,
@@ -449,7 +447,6 @@ void hci_le_connection_complete_event(uint8_t Status, uint16_t Connection_Handle
   }
 }
 
-/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- weak-symbol override called from the excluded BlueNRG middleware */
 void hci_disconnection_complete_event(uint8_t Status, uint16_t Connection_Handle, uint8_t Reason)
 {
   (void)Connection_Handle;
@@ -463,7 +460,6 @@ void hci_disconnection_complete_event(uint8_t Status, uint16_t Connection_Handle
 }
 
 /* A client wrote a characteristic. Attr_Handle is the value handle (= char handle + 1). */
-/* cppcheck-suppress [misra-c2012-8.7, unusedFunction] -- weak-symbol override called from the excluded BlueNRG middleware */
 void aci_gatt_attribute_modified_event(uint16_t Connection_Handle, uint16_t Attr_Handle,
                                        uint16_t Offset, uint16_t Attr_Data_Length, uint8_t Attr_Data[])
 {

@@ -276,6 +276,10 @@ collect_files() {
 echo "== MISRA C (cppcheck) =="
 c_files=()
 collect_files c_files c -- "${targets[@]}"
+# Absolute paths, so the path-scoped suppressions (*/App/hw/*) match a relative target as well.
+for i in "${!c_files[@]}"; do
+    c_files[i]="$(realpath -m -- "${c_files[i]}")"
+done
 
 if [ "${#c_files[@]}" -gt 0 ]; then
     # --platform: STM32/Cortex-M is 32-bit with unsigned-by-default char
@@ -458,9 +462,9 @@ for entry in open(listing):
     inside = False
     with open(path, errors="replace") as source:
         for number, line in enumerate(source, 1):
-            if "USER CODE BEGIN" in line:
+            if line.lstrip().startswith("/* USER CODE BEGIN"):
                 inside = True
-            elif "USER CODE END" in line:
+            elif line.lstrip().startswith("/* USER CODE END"):
                 inside = False
             elif not inside:
                 print("*:%s:%d" % (given, number))
