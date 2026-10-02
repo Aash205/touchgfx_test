@@ -8,27 +8,18 @@
 # Prefer an inline "/* cppcheck-suppress [id] -- reason */" comment above the flagged line
 # over an entry here: line-number entries break on every edit.
 
-# Waveshare driver: STM32 GPIO port macros are integer-address-to-pointer
-# casts, HAL SPI takes mutable buffers even for read-only transmit data, and
-# ThreadX names are declared mutable. These are vendor API/hardware boundaries.
-misra-c2012-11.4:*waveshare_driver.c
+# App/hw: three whole-program checks cannot be judged one translation unit at a time. Functions
+# here are called from the CubeMX files, the USBX files and the TouchGFX C++ sources, none of which
+# are lint targets, and the HAL's weak callback hooks are never called from C at all. So 'never
+# used', 'could be static' and 'external linkage but referenced once' are expected for the hardware
+# glue. Every other rule applies, and each deviation is an inline cppcheck-suppress with a reason.
+unusedFunction:*/App/hw/*
+misra-c2012-8.7:*/App/hw/*
+staticFunction:*/App/hw/*
 
-# MISRA 15.5 is advisory. The driver's early returns are argument/error guards;
-# retaining them keeps failure paths direct and preserves the established flow.
-misra-c2012-15.5:*waveshare_driver.c
-
-# Chunked SPI/framebuffer transfers require bounded pointer stepping (Rule
-# 18.4 advisory). Analyzer also mislabels the cursor update as Rule 10.3.
-misra-c2012-18.4:*waveshare_driver.c
-misra-c2012-10.3:*waveshare_driver.c
-
-# Public module APIs and HAL callback overrides are consumed by callers outside
-# the selected file subset (TouchGFX/app integration and HAL's weak hook table).
-unusedFunction:*waveshare_driver.c
-misra-c2012-8.7:*waveshare_driver.c
-staticFunction:*waveshare_driver.c
-constParameterPointer:*waveshare_driver.c
-duplicateCondition:*waveshare_driver.c
+# Display driver: MISRA 15.5 is advisory. Its early returns are argument and HAL-error guards;
+# keeping them makes the failure paths direct and leaves the reviewed control flow unchanged.
+misra-c2012-15.5:*/App/hw/waveshare_driver/*
 
 # Configuration/vendor headers reached through includes are not lint targets.
 *:*custom_conf.h

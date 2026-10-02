@@ -6,6 +6,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MISRA_DIR="$REPO_ROOT/misra"
 
 EXCLUDE_FILE="$MISRA_DIR/exclude-paths.txt"
+# CubeMX-generated files whose USER CODE regions are linted: CubeMX owns their formatting.
+USER_CODE_FILE="$MISRA_DIR/user-code-paths.txt"
 
 MODE="${1:?usage: format.sh <check|fix> [target...]}"
 shift || true
@@ -33,6 +35,12 @@ is_excluded() {
             return 0
         fi
     done < "$EXCLUDE_FILE"
+    while IFS= read -r pattern; do
+        [[ -z "$pattern" || "$pattern" == \#* ]] && continue
+        if [[ "$path" == "/$pattern" ]]; then
+            return 0
+        fi
+    done < "$USER_CODE_FILE"
     return 1
 }
 

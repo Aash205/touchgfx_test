@@ -36,6 +36,9 @@ addon. Everything else (exclusions, demo self-test) stays the same.
   bugs (e.g. shift-overflow that's fine on a 64-bit host `long` but UB on a 32-bit one) and
   misjudge signedness-sensitive MISRA checks.
 - Excluded dirs: `exclude-paths.txt` — vendor/generated code, skipped by every engine.
+- `user-code-paths.txt`: CubeMX-generated files whose USER CODE BEGIN/END regions are linted. `lint.sh`
+  suppresses every other line of them at run time from the markers, so no line number is kept by hand.
+- `suppressions.txt`: reviewed, path-scoped deviations, each with its reason beside it.
 - Formatting: `scripts/format.sh check|fix [target...]` (clang-format, Allman, 4-space, CRLF
   line endings). Trailing comments use `///` and are column-aligned (clang-format's
   `AlignTrailingComments`, on by default) — matches firmware team's existing template style.
