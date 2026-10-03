@@ -9,6 +9,9 @@ optional_missing=()
 command -v cppcheck >/dev/null 2>&1 || missing+=("cppcheck")
 command -v clang-tidy >/dev/null 2>&1 || missing+=("clang-tidy")
 command -v clang-format >/dev/null 2>&1 || missing+=("clang-format")
+# unit-test.sh and gen_compile_db.sh (cmake --preset Debug) build with CMake + Ninja; ctest ships with cmake.
+command -v cmake >/dev/null 2>&1 || missing+=("cmake")
+command -v ninja >/dev/null 2>&1 || missing+=("ninja")
 
 # bear (compile_commands.json fallback for old CubeIDE) has no solid native
 # Windows build, and isn't needed on any OS as long as CubeIDE's native
@@ -23,7 +26,7 @@ if ! command -v uv >/dev/null 2>&1 && ! command -v pip3 >/dev/null 2>&1 && ! com
 fi
 
 if [ "${#missing[@]}" -eq 0 ]; then
-    echo "MISRA toolchain: all required CLI tools found (cppcheck, clang-tidy, clang-format, uv/pip)."
+    echo "MISRA toolchain: all required CLI tools found (cppcheck, clang-tidy, clang-format, cmake, ninja, uv/pip)."
     if [ "${#optional_missing[@]}" -gt 0 ]; then
         echo "Optional: ${optional_missing[*]} not found -- only needed as a compile_commands.json"
         echo "fallback for old STM32CubeIDE versions without the native export checkbox. Not"
@@ -37,14 +40,14 @@ echo ""
 case "$os_name" in
     Linux*)
         echo "Install with:"
-        echo "  sudo apt-get update && sudo apt-get install -y cppcheck clang-tidy clang-format"
+        echo "  sudo apt-get update && sudo apt-get install -y cppcheck clang-tidy clang-format cmake ninja-build"
         echo "  curl -LsSf https://astral.sh/uv/install.sh | sh   # or: sudo apt-get install -y python3-pip"
         echo "  (bear not required -- use STM32CubeIDE's native 'Generate compile_commands.json'"
         echo "   checkbox instead; sudo apt-get install -y bear only if you need the fallback)"
         ;;
     Darwin*)
         echo "Install with:"
-        echo "  brew install cppcheck llvm uv"
+        echo "  brew install cppcheck llvm cmake ninja uv"
         echo "  (bear not required -- use STM32CubeIDE's native 'Generate compile_commands.json'"
         echo "   checkbox instead; brew install bear only if you need the fallback)"
         ;;
@@ -52,6 +55,8 @@ case "$os_name" in
         echo "Windows (Git Bash) -- winget ships with Windows 10/11, no separate install needed:"
         echo "  winget install --id Cppcheck.Cppcheck -e"
         echo "  winget install --id LLVM.LLVM -e            # clang-tidy + clang-format"
+        echo "  winget install --id Kitware.CMake -e"
+        echo "  winget install --id Ninja-build.Ninja -e"
         echo "  winget install --id astral-sh.uv -e"
         echo "  No winget? Manual installers work too: https://cppcheck.sourceforge.io/"
         echo "  and https://releases.llvm.org/ -- make sure each ends up on PATH."
