@@ -1,0 +1,86 @@
+# CMake / Ninja build trees
+/build/
+**/build/
+/cmake-build-*/
+/CMakeCache.txt
+/CMakeFiles/
+/cmake_install.cmake
+/build.ninja
+/.ninja_deps
+/.ninja_log
+/compile_commands.json
+
+# STM32CubeMX temporary output
+/MXTmpFiles/
+/mx.scratch/
+
+# TouchGFX build and simulator output
+/TouchGFX/build/
+/TouchGFX/simulator/gcc/build/
+/TouchGFX/simulator/msvs/.vs/
+/TouchGFX/simulator/msvs/Debug/
+/TouchGFX/simulator/msvs/Release/
+/TouchGFX/simulator/msvs/x64/
+/TouchGFX/simulator/msvs/x86/
+
+# Compiler and linker intermediates outside the normal build directories
+*.o
+*.obj
+*.d
+*.su
+*.cyclo
+*.elf
+*.hex
+*.map
+*.lst
+
+# Local IDE state (shared project configuration remains tracked)
+/.cache/
+/.idea/
+/.metadata/
+*.code-workspace
+
+# Temporary, log, and operating-system files
+*.bak
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+Desktop.ini
+Thumbs.db
+
+# Keep the STM32CubeIDE project settings committed.
+!/.settings/
+
+# --- merged from misrachecker toolchain update ---
+# Internal planning docs, not part of shipped toolchain
+docs/superpowers/
+# Cppcheck / clang-tidy caches
+.cppcheck-build-dir/
+.cache/
+*.tidy-cache
+*.dump
+# cppcheck's cross-translation-unit analysis temp files (--enable=all
+# writes these to cwd, e.g. `194526.ctu-info`; not always cleaned up if a
+# run is killed/times out)
+*.ctu-info
+# Generated compile database / clangd fallback flags (machine-specific --
+# paths depend on the local ARM toolchain's exact version/install location,
+# regenerate via scripts/gen_compile_commands.sh / gen_compile_flags.sh)
+compile_commands.json
+compile_flags.txt
+# STM32CubeIDE build artifacts (present if toolchain is tested inside a real CubeIDE project)
+Debug/
+Release/
+.metadata/
+# STM32Cube VS Code extension / CMake build output
+build/
+CMakeCache.txt
+CMakeFiles/
+# Python venv used to bootstrap pre-commit
+.venv/
+# lint.sh's self-downloaded misra.py fallback (used when no local cppcheck
+# install ships a working addons/ folder) -- fetched from cppcheck's own
+# upstream repo, not something to commit
+misra/vendor-addons/

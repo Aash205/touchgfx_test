@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "brobeson.vscode-cppcheck",
+        "EditorConfig.EditorConfig",
+        "Gruntfuggly.triggertaskonsave",
+        "stmicroelectronics.stm32-vscode-extension"
+    ],
+    "unwantedRecommendations": [
+        "ms-vscode.cpptools"
+    ]
+}
