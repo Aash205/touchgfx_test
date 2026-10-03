@@ -282,6 +282,8 @@ for i in "${!c_files[@]}"; do
 done
 
 if [ "${#c_files[@]}" -gt 0 ]; then
+    echo "linting ${#c_files[@]} C file(s):"
+    printf '  %s\n' "${c_files[@]#"$REPO_ROOT"/}"
     # --platform: STM32/Cortex-M is 32-bit with unsigned-by-default char
     # (ARM EABI), neither of which matches this dev machine's own type
     # sizes/signedness. Without this, cppcheck silently misses real bugs
@@ -522,6 +524,8 @@ if [ "${#cpp_files[@]}" -gt 0 ]; then
     # paths), which makes every project header "not found".
     fix_args=()
     [ "$FIX" -eq 1 ] && fix_args=(--fix)
+    echo "linting ${#cpp_files[@]} C++ file(s):"
+    printf '  %s\n' "${cpp_files[@]#"$REPO_ROOT"/}"
     for f in "${cpp_files[@]}"; do
         if ! clang-tidy --config-file="$CLANG_TIDY_CONFIG" -p "$REPO_ROOT/build/Debug" "${fix_args[@]}" "$f"; then
             status=1

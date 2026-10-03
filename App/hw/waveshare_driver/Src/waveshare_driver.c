@@ -1,14 +1,14 @@
 /**
-  ******************************************************************************
-  * @file    waveshare_driver.c
-  * @brief   Waveshare 1.69-inch ST7789V2 LCD driver.
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    waveshare_driver.c
+ * @brief   Waveshare 1.69-inch ST7789V2 LCD driver.
+ ******************************************************************************
+ */
 
 #include "waveshare_driver.h"
 #include "main.h"
-#include "tx_api.h"
 #include "timeouts.h"
+#include "tx_api.h"
 #include "ws169_flush.h"
 #include "ws169_init.h"
 #include "ws169_status.h"
@@ -17,22 +17,23 @@
 
 extern SPI_HandleTypeDef hspi2;
 
-#define WS169_CMD_SLEEP_IN       0x10U
-#define WS169_CMD_SLEEP_OUT      0x11U
-#define WS169_CMD_INVERSION_ON   0x21U
-#define WS169_CMD_DISPLAY_OFF    0x28U
-#define WS169_CMD_DISPLAY_ON     0x29U
+#define WS169_CMD_SLEEP_IN 0x10U
+#define WS169_CMD_SLEEP_OUT 0x11U
+#define WS169_CMD_INVERSION_ON 0x21U
+#define WS169_CMD_DISPLAY_OFF 0x28U
+#define WS169_CMD_DISPLAY_ON 0x29U
 #define WS169_CMD_COLUMN_ADDRESS 0x2AU
-#define WS169_CMD_ROW_ADDRESS    0x2BU
-#define WS169_CMD_MEMORY_WRITE   0x2CU
-#define WS169_CMD_MADCTL         0x36U
+#define WS169_CMD_ROW_ADDRESS 0x2BU
+#define WS169_CMD_MEMORY_WRITE 0x2CU
+#define WS169_CMD_MADCTL 0x36U
 
-#define WS169_SPI_DATA_8BIT      SPI_DATASIZE_8BIT
-#define WS169_SPI_DATA_16BIT     SPI_DATASIZE_16BIT
-#define WS169_MAX_ROW_BYTES      (WS169_LANDSCAPE_WIDTH * 2U)
+#define WS169_SPI_DATA_8BIT SPI_DATASIZE_8BIT
+#define WS169_SPI_DATA_16BIT SPI_DATASIZE_16BIT
+#define WS169_MAX_ROW_BYTES (WS169_LANDSCAPE_WIDTH * 2U)
 
 _Static_assert(((uint32_t)HAL_OK == WS169_HAL_OK) && ((uint32_t)HAL_ERROR == WS169_HAL_ERROR) &&
-                 ((uint32_t)HAL_BUSY == WS169_HAL_BUSY) && ((uint32_t)HAL_TIMEOUT == WS169_HAL_TIMEOUT),
+                   ((uint32_t)HAL_BUSY == WS169_HAL_BUSY) &&
+                   ((uint32_t)HAL_TIMEOUT == WS169_HAL_TIMEOUT),
                "ws169_status HAL codes must match HAL_StatusTypeDef");
 
 typedef enum
@@ -68,8 +69,7 @@ WS169_Status_t WS169_InitBoard(WS169_Rotation_t rotation)
         .reset_port = DISP_RES_GPIO_Port,
         .reset_pin = DISP_RES_Pin,
         .command_timeout_ms = 100U,
-        .data_timeout_ms = 1000U
-    };
+        .data_timeout_ms = 1000U};
 
     return WS169_Init(&config, rotation);
 }
@@ -95,22 +95,22 @@ static void ws169_record_status(WS169_Status_t status, uint32_t hal_error)
 
     switch (WS169_CounterOf(status))
     {
-        case WS169_COUNTER_SPI:
-            s_diagnostics.spi_error_count++;
-            break;
+    case WS169_COUNTER_SPI:
+        s_diagnostics.spi_error_count++;
+        break;
 
-        case WS169_COUNTER_DMA:
-            s_diagnostics.dma_error_count++;
-            break;
+    case WS169_COUNTER_DMA:
+        s_diagnostics.dma_error_count++;
+        break;
 
-        case WS169_COUNTER_TIMEOUT:
-            s_diagnostics.timeout_count++;
-            break;
+    case WS169_COUNTER_TIMEOUT:
+        s_diagnostics.timeout_count++;
+        break;
 
-        case WS169_COUNTER_NONE:
-        default:
-            /* No diagnostic counter applies. */
-            break;
+    case WS169_COUNTER_NONE:
+    default:
+        /* No diagnostic counter applies. */
+        break;
     }
 
     ws169_exit_critical(interrupt_state);
@@ -197,11 +197,10 @@ static void ws169_dc_data(void)
     HAL_GPIO_WritePin(s_config.dc_port, s_config.dc_pin, GPIO_PIN_SET);
 }
 
-static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
-                                              uint32_t size,
+static WS169_Status_t ws169_transmit_blocking(const uint8_t* data, uint32_t size,
                                               uint32_t timeout_ms)
 {
-    const uint8_t *cursor = data;
+    const uint8_t* cursor = data;
     uint32_t remaining = size;
 
     if ((cursor == NULL) || (remaining == 0U))
@@ -212,11 +211,11 @@ static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
     while (remaining > 0U)
     {
         uint16_t chunk = (uint16_t)WS169_ChunkSize(remaining, 0xFFFFU);
-        HAL_StatusTypeDef hal_status = HAL_SPI_Transmit(s_config.spi,
-                                                       /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit calls take a non-const buffer and only read it */
-                                                       (uint8_t *)(uintptr_t)cursor,
-                                                       chunk,
-                                                       timeout_ms);
+        HAL_StatusTypeDef hal_status =
+            HAL_SPI_Transmit(s_config.spi,
+                             /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit calls take a
+                                non-const buffer and only read it */
+                             (uint8_t*)(uintptr_t)cursor, chunk, timeout_ms);
         WS169_Status_t status = ws169_status_from_hal(hal_status, false);
 
         if (status != WS169_STATUS_OK)
@@ -224,7 +223,8 @@ static WS169_Status_t ws169_transmit_blocking(const uint8_t *data,
             return status;
         }
 
-        /* cppcheck-suppress [misra-c2012-18.4, misra-c2012-10.3] -- walks the caller's buffer one chunk at a time */
+        /* cppcheck-suppress [misra-c2012-18.4, misra-c2012-10.3] -- walks the caller's buffer one
+         * chunk at a time */
         cursor += chunk;
         remaining -= chunk;
     }
@@ -245,7 +245,7 @@ static WS169_Status_t ws169_write_command(uint8_t command)
     return status;
 }
 
-static WS169_Status_t ws169_write_data(const uint8_t *data, uint32_t size)
+static WS169_Status_t ws169_write_data(const uint8_t* data, uint32_t size)
 {
     WS169_Status_t status;
 
@@ -257,9 +257,7 @@ static WS169_Status_t ws169_write_data(const uint8_t *data, uint32_t size)
     return status;
 }
 
-static WS169_Status_t ws169_write_command_data(uint8_t command,
-                                               const uint8_t *data,
-                                               uint32_t size)
+static WS169_Status_t ws169_write_command_data(uint8_t command, const uint8_t* data, uint32_t size)
 {
     WS169_Status_t status = ws169_write_command(command);
 
@@ -295,9 +293,7 @@ static WS169_Status_t ws169_set_spi_data_size(uint32_t data_size)
     return WS169_STATUS_OK;
 }
 
-static WS169_Status_t ws169_set_address_window_unlocked(uint16_t x1,
-                                                        uint16_t y1,
-                                                        uint16_t x2,
+static WS169_Status_t ws169_set_address_window_unlocked(uint16_t x1, uint16_t y1, uint16_t x2,
                                                         uint16_t y2)
 {
     uint8_t columns[WS169_WINDOW_BYTES];
@@ -401,9 +397,7 @@ static WS169_Status_t ws169_initialize_controller(WS169_Rotation_t rotation)
     }
     if (status == WS169_STATUS_OK)
     {
-        status = ws169_set_address_window_unlocked(0U,
-                                                   0U,
-                                                   (uint16_t)(WS169_GetWidth() - 1U),
+        status = ws169_set_address_window_unlocked(0U, 0U, (uint16_t)(WS169_GetWidth() - 1U),
                                                    (uint16_t)(WS169_GetHeight() - 1U));
     }
     if (status == WS169_STATUS_OK)
@@ -415,14 +409,13 @@ static WS169_Status_t ws169_initialize_controller(WS169_Rotation_t rotation)
     return status;
 }
 
-WS169_Status_t WS169_Init(const WS169_Config_t *config, WS169_Rotation_t rotation)
+WS169_Status_t WS169_Init(const WS169_Config_t* config, WS169_Rotation_t rotation)
 {
     WS169_Status_t status;
     bool lock_acquired;
 
-    if ((config == NULL) || (config->spi == NULL) ||
-        (config->cs_port == NULL) || (config->dc_port == NULL) ||
-        (config->reset_port == NULL) ||
+    if ((config == NULL) || (config->spi == NULL) || (config->cs_port == NULL) ||
+        (config->dc_port == NULL) || (config->reset_port == NULL) ||
         (config->command_timeout_ms == 0U) || (config->data_timeout_ms == 0U) ||
         (rotation >= WS169_ROTATION_COUNT))
     {
@@ -569,10 +562,7 @@ WS169_Status_t WS169_SleepOut(void)
     return ws169_simple_command(WS169_CMD_SLEEP_OUT, 120U);
 }
 
-WS169_Status_t WS169_SetAddressWindow(uint16_t x1,
-                                      uint16_t y1,
-                                      uint16_t x2,
-                                      uint16_t y2)
+WS169_Status_t WS169_SetAddressWindow(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
 {
     WS169_Status_t status;
     bool lock_acquired;
@@ -622,8 +612,7 @@ WS169_Status_t WS169_FillScreenRGB565(uint16_t color)
     }
     if (status == WS169_STATUS_OK)
     {
-        status = ws169_set_address_window_unlocked(0U, 0U,
-                                                   (uint16_t)(width - 1U),
+        status = ws169_set_address_window_unlocked(0U, 0U, (uint16_t)(width - 1U),
                                                    (uint16_t)(height - 1U));
     }
     if (status == WS169_STATUS_OK)
@@ -632,9 +621,7 @@ WS169_Status_t WS169_FillScreenRGB565(uint16_t color)
         ws169_cs_low();
         for (uint16_t y = 0U; (y < height) && (status == WS169_STATUS_OK); y++)
         {
-            status = ws169_transmit_blocking(row,
-                                             (uint32_t)width * 2U,
-                                             s_config.data_timeout_ms);
+            status = ws169_transmit_blocking(row, (uint32_t)width * 2U, s_config.data_timeout_ms);
         }
         ws169_cs_high();
     }
@@ -646,7 +633,7 @@ WS169_Status_t WS169_FillScreenRGB565(uint16_t color)
     return status;
 }
 
-static WS169_Status_t ws169_send_pixels(const uint16_t *pixels, uint16_t count)
+static WS169_Status_t ws169_send_pixels(const uint16_t* pixels, uint16_t count)
 {
     HAL_StatusTypeDef hal_status;
 
@@ -658,10 +645,9 @@ static WS169_Status_t ws169_send_pixels(const uint16_t *pixels, uint16_t count)
     if ((!s_semaphore_ready) || (tx_thread_identify() == NULL))
     {
         hal_status = HAL_SPI_Transmit(s_config.spi,
-                                     /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit calls take a non-const buffer and only read it */
-                                     (uint8_t *)(uintptr_t)pixels,
-                                     count,
-                                     s_config.data_timeout_ms);
+                                      /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit
+                                         calls take a non-const buffer and only read it */
+                                      (uint8_t*)(uintptr_t)pixels, count, s_config.data_timeout_ms);
         if (hal_status == HAL_OK)
         {
             ws169_record_successful_transfer();
@@ -676,9 +662,9 @@ static WS169_Status_t ws169_send_pixels(const uint16_t *pixels, uint16_t count)
 
     s_dma_state = WS169_DMA_PENDING;
     hal_status = HAL_SPI_Transmit_DMA(s_config.spi,
-                                     /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit calls take a non-const buffer and only read it */
-                                     (uint8_t *)(uintptr_t)pixels,
-                                     count);
+                                      /* cppcheck-suppress misra-c2012-11.4 -- the HAL transmit
+                                         calls take a non-const buffer and only read it */
+                                      (uint8_t*)(uintptr_t)pixels, count);
     if (hal_status != HAL_OK)
     {
         s_dma_state = WS169_DMA_IDLE;
@@ -705,12 +691,9 @@ static WS169_Status_t ws169_send_pixels(const uint16_t *pixels, uint16_t count)
     return WS169_STATUS_OK;
 }
 
-WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
-                                    uint16_t framebuffer_stride_pixels,
-                                    uint16_t x,
-                                    uint16_t y,
-                                    uint16_t width,
-                                    uint16_t height)
+WS169_Status_t WS169_FlushRectRGB565(const uint16_t* framebuffer,
+                                     uint16_t framebuffer_stride_pixels, uint16_t x, uint16_t y,
+                                     uint16_t width, uint16_t height)
 {
     WS169_Status_t status;
     WS169_Status_t restore_status;
@@ -723,9 +706,8 @@ WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
     {
         return WS169_STATUS_NOT_INITIALIZED;
     }
-    if ((framebuffer == NULL) ||
-        (!WS169_FlushRectValid(framebuffer_stride_pixels, display_width, display_height,
-                               x, y, width, height)))
+    if ((framebuffer == NULL) || (!WS169_FlushRectValid(framebuffer_stride_pixels, display_width,
+                                                        display_height, x, y, width, height)))
     {
         ws169_record_status(WS169_STATUS_INVALID_ARGUMENT, 0U);
         return WS169_STATUS_INVALID_ARGUMENT;
@@ -735,9 +717,7 @@ WS169_Status_t WS169_FlushRectRGB565(const uint16_t *framebuffer,
     lock_acquired = (status == WS169_STATUS_OK);
     if (status == WS169_STATUS_OK)
     {
-        status = ws169_set_address_window_unlocked(x,
-                                                   y,
-                                                   (uint16_t)(x + width - 1U),
+        status = ws169_set_address_window_unlocked(x, y, (uint16_t)(x + width - 1U),
                                                    (uint16_t)(y + height - 1U));
     }
     if (status == WS169_STATUS_OK)
@@ -810,7 +790,7 @@ WS169_Status_t WS169_GetLastStatus(void)
     return status;
 }
 
-void WS169_GetDiagnostics(WS169_Diagnostics_t *diagnostics)
+void WS169_GetDiagnostics(WS169_Diagnostics_t* diagnostics)
 {
     uint32_t interrupt_state;
 
@@ -848,7 +828,7 @@ void WS169_ClearDiagnostics(void)
     ws169_exit_critical(interrupt_state);
 }
 
-static bool ws169_on_spi_tx_complete(const SPI_HandleTypeDef *spi)
+static bool ws169_on_spi_tx_complete(const SPI_HandleTypeDef* spi)
 {
     if ((!s_config_valid) || (spi != s_config.spi) || (s_dma_state != WS169_DMA_PENDING))
     {
@@ -864,7 +844,7 @@ static bool ws169_on_spi_tx_complete(const SPI_HandleTypeDef *spi)
     return true;
 }
 
-static bool ws169_on_spi_error(const SPI_HandleTypeDef *spi)
+static bool ws169_on_spi_error(const SPI_HandleTypeDef* spi)
 {
     if ((!s_config_valid) || (spi != s_config.spi) || (s_dma_state != WS169_DMA_PENDING))
     {
@@ -882,13 +862,13 @@ static bool ws169_on_spi_error(const SPI_HandleTypeDef *spi)
 }
 
 /* cppcheck-suppress constParameterPointer -- must match the HAL's weak callback prototype */
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef* hspi)
 {
     (void)ws169_on_spi_tx_complete(hspi);
 }
 
 /* cppcheck-suppress constParameterPointer -- must match the HAL's weak callback prototype */
-void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef* hspi)
 {
     (void)ws169_on_spi_error(hspi);
 }
