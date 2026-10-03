@@ -350,7 +350,13 @@ static BLE_StatusTypeDef ble_set_discoverable(void)
                                                          ble_app_handle.device_name);
   BLE_StatusTypeDef result = BLE_APP_STATUS_ADVERTISING;
 
+  /* Clear any earlier advertising first.  The controller answers NOT_ALLOWED when nothing is
+     advertising (e.g. on a fresh boot), which is the state we want, so that is not a failure. */
   tBleStatus ret = aci_gap_set_non_discoverable();
+  if (ret == BLE_STATUS_NOT_ALLOWED)
+  {
+    ret = BLE_STATUS_SUCCESS;
+  }
   if (ret == BLE_STATUS_SUCCESS)
   {
     ret = aci_gap_set_discoverable(ADV_IND,
