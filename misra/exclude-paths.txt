@@ -48,6 +48,10 @@
 */Core/Inc/dma2d.h
 */Core/Inc/app_threadx.h
 */Core/Inc/custom_bus.h
+*/Core/Inc/custom_conf.h
+*/Core/Inc/custom_errno.h
+*/Core/Inc/RTE_Components.h
+*/Core/Inc/tx_user.h
 
 # CubeMX/CubeIDE skeleton files that are near-100% generated (interrupt
 # vector stubs, MSP init, HAL timebase override) -- USER CODE markers exist
