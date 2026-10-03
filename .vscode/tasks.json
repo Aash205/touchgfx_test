@@ -80,6 +80,17 @@
             "problemMatcher": []
         },
         {
+            "label": "Unit tests",
+            "type": "process",
+            "command": "${workspaceFolder}/scripts/unit-test.sh",
+            "windows": {
+                "command": "${workspaceFolder}\\scripts\\git-bash-resolve.cmd",
+                "args": ["${workspaceFolder}/scripts/unit-test.sh"]
+            },
+            "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+            "problemMatcher": ["$gcc"]
+        },
+        {
             "label": "MISRA: Install pre-commit hooks",
             "type": "process",
             "command": "${workspaceFolder}/scripts/install-hooks.sh",
