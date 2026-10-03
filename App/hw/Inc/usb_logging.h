@@ -1,18 +1,19 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file    usb_logging.h
-  * @brief   USB Logging Header
-  *          USBX-based logging for diagnostics
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    usb_logging.h
+ * @brief   USB Logging Header
+ *          USBX-based logging for diagnostics
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 #ifndef USB_LOGGING_H
 #define USB_LOGGING_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* Includes ------------------------------------------------------------------*/
@@ -34,7 +35,7 @@ int USB_Logging_Init(void);
  * @param format: Format string (printf style)
  * @retval Status
  */
-int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...);
+int USB_Logging_Printf(LogLevelTypeDef level, const char* format, ...);
 
 /**
  * @brief Send raw data to LPUART1 and USB CDC
@@ -42,7 +43,7 @@ int USB_Logging_Printf(LogLevelTypeDef level, const char *format, ...);
  * @param size: Data size
  * @retval Status
  */
-int USB_Logging_SendRaw(const uint8_t *data, uint16_t size);
+int USB_Logging_SendRaw(const uint8_t* data, uint16_t size);
 
 #ifdef __cplusplus
 }
